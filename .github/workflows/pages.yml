@@ -1,0 +1,62 @@
+# Publishes the static pages (services, privacy, terms) to GitHub Pages.
+# One-time setup: repository Settings -> Pages -> Build and deployment -> Source: "GitHub Actions".
+name: Deploy static pages
+
+on:
+  push:
+    branches: [main, claude/zen-albattani-t7401e]
+    paths:
+      - 'app/services/**'
+      - 'app/privacy/**'
+      - 'app/terms/**'
+      - 'app/globals.css'
+      - 'components/verba-ui.tsx'
+      - 'components/ui/**'
+      - 'lib/links.ts'
+      - 'lib/catalog.ts'
+      - 'vendor/**'
+      - 'public/**'
+      - 'scripts/build-pages.mjs'
+      - 'scripts/check-pages.mjs'
+      - 'package-lock.json'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build and check the static site
+        run: npm run build:pages
+        env:
+          PAGES_APP_ORIGIN: https://verba-x863.onrender.com
+          PAGES_BASE_PATH: /${{ github.event.repository.name }}
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: pages-dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

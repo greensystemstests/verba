@@ -65,6 +65,12 @@ Key files:
 - `components/translator.tsx`: upload/paste, source verification, results, glossary, history and review UX.
 - `components/quote-builder.tsx` and `components/studio.tsx`: service requests and operations.
 
+## Static pages on GitHub Pages
+
+The three pages that need no server (services, privacy, terms) are also published to GitHub Pages, so they load instantly even when the Render service is asleep. `npm run build:pages` builds them into `pages-dist/` (a separate static Next.js export assembled by `scripts/build-pages.mjs`) and `scripts/check-pages.mjs` verifies every link and asset. The workflow in `.github/workflows/pages.yml` deploys on each relevant push; set Settings → Pages → Source to “GitHub Actions” once.
+
+Links from those pages to the translator, orders, accounts and workspace point at the Render app, which stays the only home of everything that needs the server, database or sign-in cookie (the session cookie is host-only, so those pages cannot move to another origin). While a visitor reads a static page, it sends one cookie-less request to the app so a sleeping free-plan server is already waking. This does not remove the wake-up delay if someone goes straight to the app address; a paid Render instance does.
+
 ## Verification
 
 ```

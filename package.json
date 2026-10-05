@@ -14,7 +14,8 @@
     "lint": "eslint . --ignore-pattern .next",
     "typecheck": "tsc --noEmit",
     "test": "node scripts/run-tests.mjs",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate",
+    "build:pages": "node scripts/build-pages.mjs && node scripts/check-pages.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
