@@ -54,7 +54,7 @@ Adding a workspace member does not create an account or send anything. Administr
 - **Database:** Neon PostgreSQL project “Verba main”. `DATABASE_URL` is set as a Render secret. `lib/runtime.ts` provides the database access used by every route (statements run in transactions where the workflow needs atomicity). Uploaded documents are stored privately in the `file_objects` table (10 MB per file).
 - **Migrations:** `drizzle/*.sql`, generated from `db/schema.ts` with `npm run db:generate`, applied by `npm run migrate` (recorded in `verba_migrations`). Deployed migrations are immutable; append new ones.
 - **First administrator:** accounts are invitation-only and the web never grants administrator rights to an anonymous visitor. Bootstrap offline: `DATABASE_URL=... npm run create-admin -- you@example.com "Your Name" https://your-site` prints a single-use, 24-hour link. Opening it lets that person choose a password and receive a recovery code. Administrators invite everyone else from Studio → Team & couriers.
-- **Environment variables:** `DATABASE_URL` (required), `OPENAI_API_KEY` (enables translation and non-TXT source reading), `OPENAI_MODEL` (optional), `APP_ORIGIN` (optional; public origin when using a custom domain).
+- **Environment variables:** `DATABASE_URL` (required; use Neon's direct host, not the `-pooler` host, with `sslmode=verify-full`), `OPENAI_API_KEY` (enables translation and non-TXT source reading), `OPENAI_MODEL` (optional), `APP_ORIGIN` (optional; public origin when using a custom domain).
 
 Key files:
 - `lib/translation.ts`: schemas, segmentation, specialty instructions and mechanical checks.
