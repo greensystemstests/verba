@@ -1,0 +1,7 @@
+# Netlify build settings. Secrets (DATABASE_URL, OPENAI_API_KEY) are set in the
+# Netlify site's environment variables, never in this file.
+[build]
+  command = "npm run build"
+
+[build.environment]
+  NODE_VERSION = "22"

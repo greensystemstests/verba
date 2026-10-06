@@ -51,3 +51,6 @@ next-env.d.ts
 # static GitHub Pages build
 /.pages-build/
 /pages-dist/
+
+# Netlify local state
+/.netlify/
