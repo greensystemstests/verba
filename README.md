@@ -71,6 +71,12 @@ The three pages that need no server (services, privacy, terms) are also publishe
 
 Links from those pages to the translator, orders, accounts and workspace point at the Render app, which stays the only home of everything that needs the server, database or sign-in cookie (the session cookie is host-only, so those pages cannot move to another origin). While a visitor reads a static page, it sends one cookie-less request to the app so a sleeping free-plan server is already waking. This does not remove the wake-up delay if someone goes straight to the app address; a paid Render instance does.
 
+## Running on Netlify (alternative to Render)
+
+`netlify.toml` builds the app with `npm run build`; Netlify's Next.js runtime turns the pages and API routes into serverless functions, so there is no always-on server that can go to sleep. In the Netlify site's environment variables set `DATABASE_URL` (Neon's pooled `-pooler` host with `sslmode=verify-full`), `DATABASE_POOL_MAX=2`, `APP_ORIGIN` (the site's https address) and, for translation, `OPENAI_API_KEY`. Then link this repository under Site configuration → Build & deploy.
+
+Verified locally with `netlify build` and `netlify serve` against PostgreSQL, plus a 21-step browser run (sign-up, quotes, TXT upload, glossary, orders, studio, reports, team roles, sign-out, mobile width). Not yet verified on Netlify's own servers: the maximum upload size, the function run-time limit for long translation steps, and cold-start time. Netlify's local emulator turns an app-level 403 into a 404; the app itself returns 403.
+
 ## Verification
 
 ```
