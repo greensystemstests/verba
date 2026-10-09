@@ -12,6 +12,13 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Local build and scratch folders (not part of the source).
+    ".pages-build/**",
+    "pages-dist/**",
+    ".netlify/**",
+    ".scratch/**",
+    ".pgtest/**",
+    "lib/pdf-fonts.ts",
   ]),
   {
     files: ["components/ui/**/*.{ts,tsx}", "hooks/use-mobile.ts"],

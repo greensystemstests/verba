@@ -1,4 +1,4 @@
 import {context,failure,admin,HttpError} from '@/lib/server';
-import {aiReady,modelName,structuredResponse} from '@/lib/ai-provider';
+import {aiReady,structuredResponse} from '@/lib/ai-provider';
 export async function GET(){try{const c=await context();return Response.json({connected:aiReady(),owner:c.admin,limits:{characters:20000,fileMB:10,dailyJobs:20},user:{name:c.u.displayName,email:c.u.email},role:c.member.role},{headers:{'Cache-Control':'private, no-store'}});}catch(e){return failure(e);}}
 export async function POST(r:Request){try{const c=await context(r);admin(c);const response=await structuredResponse('Return ok true. This is a connection test.',[{type:'input_text',text:'Test connection. No customer data is involved.'}],{type:'object',properties:{ok:{type:'boolean'}},required:['ok'],additionalProperties:false},'connection_check');if(response.data?.ok!==true)throw new HttpError(502,'The provider connection test returned an invalid result');return Response.json({ok:true,providerVerified:true});}catch(e){return failure(e);}}

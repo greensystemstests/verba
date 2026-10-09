@@ -23,30 +23,80 @@ The Connection dialog shows whether a key exists and lets administrators run a m
 
 The integration uses Responses structured JSON output, `store: false`, server-only authorization, no tools or URL retrieval, and instructions to treat source/previous translations/glossaries as untrusted data. Provider storage/retention is not guaranteed to be zero. File extraction is AI transcription except TXT, which uses UTF-8 decoding; scans and tables must be checked by the user. No original-layout guarantee is made.
 
-## Service operations
+## Service operations (spec 1.1.4)
 
-`/order` keeps the detailed quotation flow separate from `/` (translation). Included:
+`/order` keeps the detailed quotation flow separate from `/` (translation). `docs/PLAN-spec-1.1.4.md` tracks the spec stage by stage.
 
-- Eight requested service categories; multi-document, multi-language service orders; professional/student/machine-draft estimates; review, notary, copies, attendance and collection/delivery details.
-- Server-validated provisional estimates in EUR, with configurable reference USD/ILS display rates. No live FX claim.
-- Persistent quotes, draft editing, submission consent, customer directory, in-app messages, audit history, private source/completed document uploads and controlled status progression.
-- Administrator, customer, reviewer, notary and courier roles with tenant/assignment checks. Couriers see collection/delivery information, not source documents or clinical instructions/discussions. Staff authorization does not send an invitation.
-- Sequential courier status tracking and notary assignment. Final translation orders cannot be marked ready without an uploaded result.
-- CSV reports with formula-injection protection, real XLSX reports with literal text cells, printable reports/order summaries and text order exports.
-- File extension/signature checks. DOCX directory validation rejects malformed archives, path traversal, known macro/embedded executable entries and excessive expanded size. This is not malware scanning.
+**Orders**
+- The wizard adapts to each of the eight services:
+  - Notary only and Courier only skip the language and word fields.
+  - Additional services sends an inquiry.
+- Prices for each level are shown side by side.
+- Pricing factors are set by the administrator: sector, language, format, document type, customer type, country, notary and capacity.
+- Urgency applies to translation, notary and courier.
+- Courier options: one-way and round trips, domestic and international legs, same-day and next-day.
+- Each order gets a running number, such as `VB-2026-001001`.
+- A PDF quote can be downloaded or emailed.
+- Visitors can upload files before signing in. Files are claimed when the visitor signs in. Uploads over 3 MB are sent in parts.
 
-## Requirements still outside this build
+**Accounts**
+- Anyone can create a customer account (open sign-up), with first and last name, email and international phone.
+- Sign in with email or phone, with "remember me".
+- Email verification and password reset by email. Until email is connected, a one-time recovery code is shown instead.
+- Optional captcha and Google, Facebook or X sign-in.
+- Customers have a personal-information page.
+- Administrators can deactivate or remove members.
 
-The supplied v1.1.4 documents describe a larger commercial system. The following are not represented as finished or connected:
+**Work areas**
+- Roles: administrator, staff, customer, vendor (translator), reviewer, notary and courier. Each role has its own menu.
+- Deliveries are a separate shipments area. Couriers are filtered by area and can take, release and update deliveries step by step. Staff can stop or cancel a delivery. There is a delivery report.
+- The notary work area has its own report.
+- Each table can choose columns, filter, print, and export to Excel or PDF.
 
-- Live checkout, payment callbacks, subscriptions, invoices/taxes and refunds.
-- Email/SMS and external chat-channel notifications; in-app project messages refresh every 15 seconds.
-- Main-system API handoff, external carrier booking, geographic courier claiming, geocoding and automatic carrier prices.
-- Human specialist sourcing/contracts, independent credential verification, legal entity policies, approved retention/deletion processes and regulated-data compliance assessment.
-- Social login, public customer rollout, native iOS/Android apps, .NET implementation and translated interface localization. This is a responsive web app with independent Verba accounts, with invitation-only accounts.
-- Antivirus service, document layout reconstruction, translation-memory matching and unrestricted volume. Order views load the latest 500 records and first 200 messages.
+**Chat**
+- Live support chat, also available to visitors and during order entry.
+- Staff have an inbox. Customers have a support view.
 
-Adding a workspace member does not create an account or send anything. Administrators generate single-use, 24-hour account invitations and share them manually. Verba login uses email/password, scrypt password hashing, secure HttpOnly cookies, database-hashed sessions and recovery codes. Authentication never trusts proxy or hosting identity headers. Do not expand access without intentional authorization. The setup privacy/terms notices must be approved and replaced for commercial launch. Use de-identified documents during setup.
+**Notifications**
+- Email, SMS and WhatsApp, each when configured. Every notification is logged.
+
+**Languages**
+- English and Hebrew, with right-to-left layout. The language can be switched on every page and is remembered.
+- Administrators can override any text in Settings → Texts.
+- `node scripts/i18n-check.mjs` fails when a screen text has no Hebrew translation.
+
+**Settings**
+- Workspace and banner, prices, factors, texts, connections status and notification log.
+
+### Optional services (each turns on when its environment variables are set)
+
+| Service | Variables |
+|---|---|
+| Email | `SMTP_URL` or `SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASSWORD`/`SMTP_SECURE`; `MAIL_FROM`, `MAIL_REPLY_TO` |
+| SMS / WhatsApp | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM` or `TWILIO_MESSAGING_SERVICE_SID`, `TWILIO_WHATSAPP_FROM` |
+| Captcha | `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` (Cloudflare Turnstile) |
+| Social login | `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`, `FACEBOOK_CLIENT_ID`/`FACEBOOK_CLIENT_SECRET`, `X_CLIENT_ID`/`X_CLIENT_SECRET`. The redirect URL is `<APP_ORIGIN>/api/auth/oauth/<provider>/callback`. |
+| Antivirus | `CLOUDMERSIVE_API_KEY`. A built-in PDF/DOCX active-content check always runs. |
+| Main System handoff | `MAIN_SYSTEM_WEBHOOK_URL`, `MAIN_SYSTEM_WEBHOOK_SECRET`. The order is sent, HMAC-signed, when it is marked paid. |
+
+Exchange rates come from the ECB daily feed. Administrators can turn this off in Settings, and the configured reference rates are used instead.
+
+## Not built yet (on hold)
+
+- **Payments.** There is no online checkout. Staff mark orders paid by hand.
+- **Mobile apps.** Both the installable web app and native apps are on hold. The site is responsive.
+- **Other integrations:**
+  - DHL, UPS and FedEx booking.
+  - Viber and WeChat notifications.
+  - Translation-memory matching.
+  - The Main System's own API. The webhook above is the handoff point.
+- **Before a commercial launch:**
+  - Human specialist sourcing.
+  - Credential verification.
+  - Legal-entity policies and approved retention.
+  - A compliance review.
+
+The privacy and terms pages must be approved and replaced before a commercial launch.
 
 ## Hosting, database and accounts
 
@@ -75,7 +125,7 @@ Links from those pages to the translator, orders, accounts and workspace point a
 
 `netlify.toml` builds the app with `npm run build`; Netlify's Next.js runtime turns the pages and API routes into serverless functions, so there is no always-on server that can go to sleep. In the Netlify site's environment variables set `DATABASE_URL` (Neon's pooled `-pooler` host with `sslmode=verify-full`), `DATABASE_POOL_MAX=2`, `APP_ORIGIN` (the site's https address) and, for translation, `OPENAI_API_KEY`. Then link this repository under Site configuration → Build & deploy.
 
-Verified locally with `netlify build` and `netlify serve` against PostgreSQL, plus a 21-step browser run (sign-up, quotes, TXT upload, glossary, orders, studio, reports, team roles, sign-out, mobile width). Not yet verified on Netlify's own servers: the maximum upload size, the function run-time limit for long translation steps, and cold-start time. Netlify's local emulator turns an app-level 403 into a 404; the app itself returns 403.
+Uploads above 3 MB are sent in parts, which keeps each request within Netlify's size limit. Verified locally with `netlify build` and `netlify serve` against PostgreSQL, plus a 21-step browser run (sign-up, quotes, TXT upload, glossary, orders, studio, reports, team roles, sign-out, mobile width). Not yet verified on Netlify's own servers: the maximum upload size, the function run-time limit for long translation steps, and cold-start time. Netlify's local emulator turns an app-level 403 into a 404; the app itself returns 403.
 
 ## Verification
 
@@ -85,7 +135,7 @@ npm run build
 TEST_DATABASE_URL=postgresql://user@127.0.0.1:5432/postgres npm test
 ```
 
-`npm test` runs the pure integrity checks and three API suites. Each API suite creates a throwaway PostgreSQL database on the `TEST_DATABASE_URL` server (never use production), starts the production build, and mocks the AI provider strictly at the outbound HTTP boundary (`tests/support/provider-redirect.mjs`, loaded only by the tests). They cover permissions, missing configuration, idempotency, two-pass processing, glossary snapshots, source confirmation, numeric flags, review/approval/edit gates, stale versions, errors, retry exhaustion, concurrent requests, cancellation, quota races, invitations, recovery and logout.
+`npm test` runs the pure integrity checks, the Hebrew-coverage check and four API suites (the fourth, `tests/spec-workflows.mjs`, covers the spec 1.1.4 workflows with local SMTP, SMS, captcha and social-login mocks). Each API suite creates a throwaway PostgreSQL database on the `TEST_DATABASE_URL` server (never use production), starts the production build, and mocks the AI provider strictly at the outbound HTTP boundary (`tests/support/provider-redirect.mjs`, loaded only by the tests). They cover permissions, missing configuration, idempotency, two-pass processing, glossary snapshots, source confirmation, numeric flags, review/approval/edit gates, stale versions, errors, retry exhaustion, concurrent requests, cancellation, quota races, invitations, recovery and logout.
 
 DOCX and XLSX exports were reopened with python-docx and openpyxl; formula-like values remain literal text. The main browser flows (invitation, quote, glossary, specialist order, studio views, team invitation, sign-out, mobile width) were exercised in Chromium.
 

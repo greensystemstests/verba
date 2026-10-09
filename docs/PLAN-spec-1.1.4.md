@@ -19,6 +19,32 @@ Legend: ✅ done · 🟡 partial · ❌ missing
 
 ---
 
+## Status (2026-10-09)
+
+Built and verified: Stage 1 (E1–E14, E16), Stages 2–6 and Stage 8 (English and Hebrew, with right-to-left layout). E15 is a Netlify setting, not code: it is changed on the site itself.
+
+On hold, by decision:
+- **Payments.** Staff mark orders paid by hand. Marking an order paid notifies the customer and sends it to the Main System webhook when one is set.
+- **Mobile.** Both the installable web app and native apps are on hold.
+
+Built but needs keys from you (Stage 7). Everything works without them, and each one turns on when its key is added:
+
+| Service | Environment variables |
+|---|---|
+| Email | `SMTP_URL` (or `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_SECURE`), `MAIL_FROM`, `MAIL_REPLY_TO` |
+| SMS and WhatsApp | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM` or `TWILIO_MESSAGING_SERVICE_SID`, `TWILIO_WHATSAPP_FROM` |
+| Captcha | `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` |
+| Social login | `GOOGLE_CLIENT_ID`/`_SECRET`, `FACEBOOK_CLIENT_ID`/`_SECRET`, `X_CLIENT_ID`/`_SECRET` |
+| Antivirus | `CLOUDMERSIVE_API_KEY`. A built-in PDF/DOCX safety check always runs. |
+| Main System | `MAIN_SYSTEM_WEBHOOK_URL`, `MAIN_SYSTEM_WEBHOOK_SECRET` (HMAC-signed) |
+| Exchange rates | None. The ECB daily feed is used, and it can be switched off in Settings. |
+
+Not built:
+- DHL, UPS and FedEx booking. International legs are priced from settings.
+- Viber and WeChat. These are logged as "skipped".
+- Translation-memory matching.
+- The Main System's own API, which still needs its API document.
+
 ## Part A: Errors found (bugs and wrong behaviour)
 
 | # | Error | Evidence |

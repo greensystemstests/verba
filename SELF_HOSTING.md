@@ -18,4 +18,5 @@ The application originally ran on a managed Cloudflare Workers host (D1 database
 3. Backups and retention: Neon keeps point-in-time history for its retention window; define retention/deletion policy and scheduled cleanup of expired sessions, invitations and rate-limit rows.
 4. Render's free plan sleeps when idle (first request after a pause is slow). Use a paid instance for production traffic.
 5. The privacy and terms pages are setup notices. The operator must approve and replace them, identify the legal entity, and confirm processing agreements.
-6. Payment, carrier, main-system and notification integrations remain separate unfinished work. Live translation quality is unverified until the provider is connected and bilingual specialists assess representative outputs.
+6. Payments, DHL, UPS and FedEx booking, and the Main System's own API remain unfinished. Email, SMS, WhatsApp, captcha, social login, antivirus and the Main System webhook are built and turn on with their environment variables (see README).
+7. Migrations: `drizzle/0001_spec_1_1_4.sql` is applied by `npm run migrate`, which runs when Render starts. Netlify shares the same database and does not run migrations itself. Live translation quality is unverified until the provider is connected and bilingual specialists assess representative outputs.

@@ -1,0 +1,10 @@
+[
+ "Certificate ",
+ "Document ",
+ "Provider answered ",
+ "Translation section ",
+ "Enter",
+ "SMTP_URL or SMTP_HOST, MAIL_FROM",
+ "GOOGLE_CLIENT_ID / FACEBOOK_CLIENT_ID / X_CLIENT_ID and secrets",
+ "Translate EVERY supplied source segment in full, preserving its meaning, paragraph breaks, headings and lists. Never summarize or omit content."
+]

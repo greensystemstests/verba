@@ -20,10 +20,10 @@ rmSync(work,{recursive:true,force:true});rmSync(dist,{recursive:true,force:true}
 mkdirSync(path.join(work,'app'),{recursive:true});
 const copy=(from,to=from)=>cpSync(path.join(root,from),path.join(work,to),{recursive:true});
 for(const page of ['services','privacy','terms'])copy('app/'+page);
-for(const f of ['app/globals.css','components/verba-ui.tsx','components/ui','hooks','lib/utils.ts','lib/catalog.ts','lib/links.ts','vendor','public','postcss.config.mjs'])copy(f);
+for(const f of ['app/globals.css','components/verba-ui.tsx','components/i18n.tsx','components/ui','lib/i18n','hooks','lib/utils.ts','lib/catalog.ts','lib/links.ts','vendor','public','postcss.config.mjs'])copy(f);
 const write=(f,s)=>writeFileSync(path.join(work,f),s);
 write('package.json',JSON.stringify({name:'verba-pages',private:true,type:'module'}));
-write('tsconfig.json',JSON.stringify({compilerOptions:{target:'ES2017',lib:['dom','dom.iterable','esnext'],strict:true,noEmit:true,esModuleInterop:true,module:'esnext',moduleResolution:'bundler',resolveJsonModule:true,isolatedModules:true,jsx:'react-jsx',skipLibCheck:true,incremental:true,plugins:[{name:'next'}],paths:{'@/*':['./*']},types:['node']},include:['**/*.ts','**/*.tsx','next-env.d.ts'],exclude:['node_modules']}));
+write('tsconfig.json',JSON.stringify({compilerOptions:{target:'ES2017',lib:['dom','dom.iterable','esnext'],strict:true,noEmit:true,esModuleInterop:true,module:'esnext',moduleResolution:'bundler',resolveJsonModule:true,isolatedModules:true,jsx:'react-jsx',skipLibCheck:true,incremental:true,allowImportingTsExtensions:true,plugins:[{name:'next'}],paths:{'@/*':['./*']},types:['node']},include:['**/*.ts','**/*.tsx','next-env.d.ts'],exclude:['node_modules']}));
 write('next.config.mjs',`export default {output:'export',trailingSlash:true,images:{unoptimized:true},basePath:${JSON.stringify(base)},turbopack:{root:${JSON.stringify(root)}}};\n`);
 write('app/warm-up.tsx',`'use client';
 import {useEffect} from 'react';
@@ -33,8 +33,9 @@ export default function WarmUp(){useEffect(()=>{const origin=process.env.NEXT_PU
 write('app/layout.tsx',`import type {Metadata} from 'next';
 import './globals.css';
 import WarmUp from './warm-up';
+import {I18nProvider} from '@/components/i18n';
 export const metadata:Metadata={title:'Verba — Translation, without the back-and-forth',description:'Specialist translation in medical, legal, finance, technology and marketing. Estimate, manage and deliver every project in one workspace.',icons:{icon:(process.env.NEXT_PUBLIC_SITE_BASE||'')+'/favicon.svg'}};
-export default function RootLayout({children}:Readonly<{children:React.ReactNode}>){return <html lang="en"><body className="antialiased">{children}<WarmUp/></body></html>;}
+export default function RootLayout({children}:Readonly<{children:React.ReactNode}>){return <html lang="en" dir="ltr"><body className="antialiased"><I18nProvider lang="en" detect>{children}</I18nProvider><WarmUp/></body></html>;}
 `);
 write('app/page.tsx',"export {default} from './services/page';\n");
 
