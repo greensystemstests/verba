@@ -20,9 +20,9 @@ export function shipmentStatement(c:Ctx,orderId:string,owner:string,o:Order,q:Qu
   const origin=o.collect||o.service==='Courier only'&&!o.deliver?o.pickup:office;
   const destination=o.deliver?o.dropoff:office;
   const type=o.service==='Courier only'?(o.roundTrip?'2 way':'1 way'):(o.collect&&o.deliver?'2 way':'1 way');
-  const now=new Date();const date=o.timing==='Same day'?now:o.timing==='Next day'?addBusinessDays(now,1):null;
+  const now=new Date();const date=o.timing==='Same day'?now:addBusinessDays(now,o.timing==='Next day'?1:2);
   return db().prepare('INSERT INTO shipments (id,workspace,number,order_id,customer_account,customer_name,customer_email,customer_phone,status,delivery_date,same_day,next_day,urgency,type,operator,origin,destination,sum,international,created,updated) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
-    .bind(crypto.randomUUID(),c.workspace.id,number,orderId,owner,o.name,o.email,[o.phonePrefix,o.phone].filter(Boolean).join(' '),'Awaiting assignment',date?date.toISOString().slice(0,10):null,o.timing==='Same day'?1:0,o.timing==='Next day'?1:0,o.urgency,type,q.carrier,JSON.stringify(origin),JSON.stringify(destination),Math.round(q.delivery*100),q.international?1:0,now.toISOString(),now.toISOString());
+    .bind(crypto.randomUUID(),c.workspace.id,number,orderId,owner,o.name,o.email,[o.phonePrefix,o.phone].filter(Boolean).join(' '),'Awaiting assignment',date.toISOString().slice(0,10),o.timing==='Same day'?1:0,o.timing==='Next day'?1:0,o.urgency,type,q.carrier,JSON.stringify(origin),JSON.stringify(destination),Math.round(q.delivery*100),q.international?1:0,now.toISOString(),now.toISOString());
 }
 export async function nextNumber(seq:'order_number_seq'|'shipment_number_seq'){const r=await db().prepare(`SELECT nextval('${seq}') AS n`).first<{n:number}>();return Number(r!.n);}
 

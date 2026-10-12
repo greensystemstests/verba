@@ -12,7 +12,7 @@ export function orderRows(o:Order,q:Quote,t:T,lang:Lang):[string,string][]{
   if(o.documents.length&&o.service!=='Courier only')rows.push([t('Documents'),o.documents.map(d=>`${d.name} (${t(d.type)}, ${d.quantity>1?d.quantity+' × ':''}${t('{n} pages',{n:d.pages})}, ${t('{n} words',{n:d.words||d.pages*250})}, ${d.format})`).join('; ')]);
   if(translates(o.service)&&o.service!=='Translation validation')rows.push([t('Service level'),t(o.level)]);
   if(translates(o.service))rows.push([t('Language review'),o.validation||o.service==='Translation validation'?t('Yes'):t('No')],[t('Layout and formatting (DTP)'),o.dtp?t('Yes'):t('No')],[t('Urgency'),t(o.urgency)]);
-  if(hasNotary(o))rows.push([t('Notary service'),`${t(o.notaryType)} · ${t('{n} copies',{n:o.copies})} · ${t(o.notaryUrgency)}`],[t('Physical arrival'),o.physical?t('Yes'):t('No')]);
+  if(hasNotary(o))rows.push([t('Notary service'),`${t(o.notaryType)} · ${o.copies===1?t('1 copy'):t('{n} copies',{n:o.copies})} · ${t(o.notaryUrgency)}`],[t('Physical arrival'),o.physical?t('Yes'):t('No')]);
   if(hasCourier(o)){
     if(o.collect||o.service==='Courier only')rows.push([o.service==='Courier only'?t('Collect from'):t('Collection by courier'),o.collect||o.service==='Courier only'?formatAddress(o.pickup,lang)+` · ${o.pickup.contact} ${displayPhone([o.pickup.phonePrefix,o.pickup.phone].join(''))} · ${t(o.pickup.window)}`:t('No')]);
     if(o.deliver)rows.push([o.service==='Courier only'?t('Deliver to'):t('Return by courier'),formatAddress(o.dropoff,lang)+` · ${o.dropoff.contact} ${displayPhone([o.dropoff.phonePrefix,o.dropoff.phone].join(''))} · ${t(o.dropoff.window)}`]);

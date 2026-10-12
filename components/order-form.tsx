@@ -40,7 +40,7 @@ export default function OrderForm({embedded=false}:{embedded?:boolean}){
   // Restores the visitor's draft (local storage) and the requested draft or service after hydration.
   useEffect(()=>{let alive=true;
     const draft=new URLSearchParams(location.search).get('draft');const service=new URLSearchParams(location.search).get('service');
-    api('/api/workspace').then(w=>{if(!alive)return;setPricing(w.pricing);setKind(w.customerKind);const u=w.user;setMe({name:u.name,email:u.email,firstName:u.firstName,lastName:u.lastName,phone:u.phone,company:u.company,country:u.country});
+    api('/api/auth/status').then(who=>{if(!who.user)throw new Error('visitor');return api('/api/workspace');}).then(w=>{if(!alive)return;setPricing(w.pricing);setKind(w.customerKind);const u=w.user;setMe({name:u.name,email:u.email,firstName:u.firstName,lastName:u.lastName,phone:u.phone,company:u.company,country:u.country});
       setO(x=>({...x,firstName:x.firstName||u.firstName,lastName:x.lastName||u.lastName,email:x.email||u.email,...(x.phone||!u.phone?{}:{phonePrefix:splitPhone(u.phone).prefix,phone:splitPhone(u.phone).number}),company:x.company||u.company||'',customerCountry:u.country||x.customerCountry,currency:x.currency==='EUR'&&u.currency?u.currency:x.currency}));}).catch(()=>{
       api('/api/public-config').then(p=>{if(alive){setPricing(p.pricing);setCaptchaKey(p.captcha);}}).catch(()=>{});
     }).finally(()=>alive&&setChecked(true));

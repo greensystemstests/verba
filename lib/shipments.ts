@@ -2,7 +2,7 @@ import {db,HttpError,type Ctx} from './server';
 import {normalizeAddress,shipmentReference} from './catalog';
 export type ShipmentRow={id:string;workspace:string;number:number;order_id:string|null;customer_account:string|null;customer_name:string;customer_email:string;customer_phone:string;status:string;delivery_date:string|null;same_day:number;next_day:number;urgency:string;type:string;operator:string;courier:string|null;return_courier:string|null;origin:string;destination:string;sum:number;international:number;tracking:string;notes:string;created:string;updated:string};
 export const shipmentStatuses=['Awaiting assignment','Assigned','Collected','In transit','Delivered','Stopped','Cancelled'] as const;
-export function shipmentView(s:ShipmentRow,extra:Record<string,unknown>={}){return {...s,reference:shipmentReference(s.number),origin:normalizeAddress(JSON.parse(s.origin)),destination:normalizeAddress(JSON.parse(s.destination)),...extra};}
+export function shipmentView(s:ShipmentRow,extra:Record<string,unknown>={}){return {...s,delivery_date:s.delivery_date||s.created.slice(0,10),reference:shipmentReference(s.number),origin:normalizeAddress(JSON.parse(s.origin)),destination:normalizeAddress(JSON.parse(s.destination)),...extra};}
 // A courier sees jobs assigned to them, plus unassigned jobs in their area of activity.
 export function inArea(area:string,s:ShipmentRow){
   if(!area.trim())return true;

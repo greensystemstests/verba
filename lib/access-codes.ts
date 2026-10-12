@@ -1,10 +1,10 @@
 import {createHash,timingSafeEqual} from 'node:crypto';
 import {runtime,db} from './server';
 // Access codes give free translation up to a word limit, in every DeepL language. They are set on the server in
-// ACCESS_CODES, for example "my-code:5000" or "my-code:5000:100000", where the optional third number is a total word
+// ACCESS_CODES, for example "my-code:2000" or "my-code:2000:100000", where the optional third number is a total word
 // budget. The codes never appear in the source code or in the browser until a person types one.
 export type AccessCode={id:string;maxWords:number;budget:number|null};
-export const DEFAULT_CODE_WORDS=5000;
+export const DEFAULT_CODE_WORDS=2000;
 const digest=(code:string)=>createHash('sha256').update(code.trim().toLowerCase()).digest();
 // Stable identifier stored with a job instead of the code itself.
 export const codeId=(code:string)=>digest(code).toString('hex').slice(0,16);
