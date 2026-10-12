@@ -1,4 +1,4 @@
-# Netlify build settings. Secrets (DATABASE_URL, OPENAI_API_KEY) are set in the
+# Netlify build settings. Secrets (DATABASE_URL, DEEPL_API_KEY) are set in the
 # Netlify site's environment variables, never in this file.
 [build]
   command = "npm run build"

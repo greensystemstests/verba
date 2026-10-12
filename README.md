@@ -4,24 +4,30 @@ A private translation web application with a simple text/document workflow and a
 
 ## Primary workflow
 
-1. Paste text or upload PDF, DOCX, UTF-8 TXT, JPG or PNG.
+1. Paste text or upload a text-based PDF, DOCX or UTF-8 TXT file. Files are read on the server; photos and scans have no text layer and are refused (paste the text instead).
 2. Select source/target language and specialty. Choose faithful, natural, or marketing brand tone.
 3. Watch real request-processing progress, then receive an itemized EUR quote based on source word count and configured rates. Uploaded documents show the extracted text for confirmation; editing it recalculates the quote.
-4. Explicitly approve the saved quote before translation starts. Quotes expire after 24 hours. They cover an AI draft and automated review, excluding tax, human specialist review, notary and courier work; no payment is collected.
-5. The server translates in bounded segments, runs a separate source-versus-draft bilingual review, then checks numeric values/signs, units, identifiers, section completeness and saved terminology.
+4. Explicitly approve the saved quote before translation starts. Quotes expire after 24 hours. They cover a DeepL machine translation and automated quality checks, excluding tax, human specialist review, notary and courier work; no payment is collected.
+5. The server translates in bounded segments with DeepL (required terms are sent as a per-job DeepL glossary, and the formality setting follows the chosen tone where the language supports it), then checks numeric values/signs, units, identifiers, section completeness and saved terminology. There is no second AI pass.
 6. Read the bilingual result, edit it if needed, record qualified review, and download Word or TXT or print to PDF. Original layout is not reproduced. Medical, legal and financial results always require specialist review.
 
-Results remain explicitly labeled AI drafts until an authorized reviewer records an attestation. This records a workspace review; it does not verify professional credentials, certify accuracy, or notarize a document. Automated review uses a separate request to the same configured model, not a human or an independent translation provider.
+Results remain explicitly labeled drafts until an authorized reviewer records an attestation. This records a workspace review; it does not verify professional credentials, certify accuracy, or notarize a document. Automated checks are rules, not a human or an independent translation.
 
 Jobs, source, glossary snapshots, results, errors, review notes and provider token usage persist. Leaving the page pauses automatic advancement after the current request; reopen History and Resume. There is no background queue. Leases prevent parallel step execution, completed steps are checkpointed, cancellation rejects late writes, edits invalidate approval, and version checks reject stale edits. A failed step permits three attempts. Job creation uses an idempotency key and an atomic 20-job/workspace rolling 24-hour limit. Text is limited to 20,000 characters; uploads to 10 MB; glossary to 200 entries per workspace.
 
-## One-time provider setup — outstanding
+## One-time provider setup: DeepL
 
-The production OpenAI connection was not available during implementation. `OPENAI_API_KEY` must be provisioned securely in the server runtime (Render → service → Environment) through the OpenAI Developers API-key workflow; never place it in client code, source control or a chat message. `OPENAI_MODEL` optionally overrides the default `gpt-6-astra`. The runtime key is site-wide; only grant Site access to intended users. New uninvited identities otherwise receive separate workspaces.
+Translation uses the DeepL API. Set `DEEPL_API_KEY` in the server runtime (Render → service → Environment, and the Netlify site's environment variables); never place it in client code, source control or a chat message. Keys ending in `:fx` are DeepL API Free keys and use `api-free.deepl.com`; other keys use `api.deepl.com`.
 
-The Connection dialog shows whether a key exists and lets administrators run a minimal live connection test. When no key is configured, pasted-text and TXT quotes still work. Quote acceptance cannot start translation and returns 503. Other file formats need the provider for source extraction. The app never substitutes sample output for live translation. API usage is billed to the connected account, separately from the illustrative human-service estimates.
-
-The integration uses Responses structured JSON output, `store: false`, server-only authorization, no tools or URL retrieval, and instructions to treat source/previous translations/glossaries as untrusted data. Provider storage/retention is not guaranteed to be zero. File extraction is AI transcription except TXT, which uses UTF-8 decoding; scans and tables must be checked by the user. No original-layout guarantee is made.
+- **Use a DeepL API Pro key for confidential documents.** DeepL states that Pro deletes submitted texts after translation and does not use them to train its models; the Free plan has no such guarantee, and it is limited to 500,000 characters a month.
+- The Connection dialog shows whether a key exists and lets administrators run a live test. The test reads the key's character usage and lists any of Verba's 13 languages that DeepL cannot translate yet. An unsupported pair returns a clear message at translation time.
+- Without a key, pasted-text and TXT quotes still work and translation returns 503. The app never substitutes sample output for live translation.
+- DeepL is a translation engine, not a chat model, so some earlier behavior changed:
+  - There is no second AI review pass. Quality checks are rules (numbers, units, identifiers, completeness, glossary), and medical, legal and financial results always need specialist review.
+  - Documents are read locally: text-based PDF, Word and TXT. Photos and scans are refused.
+  - Tone maps only to DeepL's formality setting (Natural and Brand voice ask for a less formal register where the language supports it). DeepL gets the sector as context, not as instructions.
+  - Jobs created before the change finish with their first-pass text.
+- DeepL has no `store:false` option. Provider usage is billed to the workspace's DeepL account.
 
 ## Service operations (spec 1.1.4)
 
@@ -104,7 +110,7 @@ The privacy and terms pages must be approved and replaced before a commercial la
 - **Database:** Neon PostgreSQL project “Verba main”. `DATABASE_URL` is set as a Render secret. `lib/runtime.ts` provides the database access used by every route (statements run in transactions where the workflow needs atomicity). Uploaded documents are stored privately in the `file_objects` table (10 MB per file).
 - **Migrations:** `drizzle/*.sql`, generated from `db/schema.ts` with `npm run db:generate`, applied by `npm run migrate` (recorded in `verba_migrations`). Deployed migrations are immutable; append new ones.
 - **First administrator:** accounts are invitation-only and the web never grants administrator rights to an anonymous visitor. Bootstrap offline: `DATABASE_URL=... npm run create-admin -- you@example.com "Your Name" https://your-site` prints a single-use, 24-hour link. Opening it lets that person choose a password and receive a recovery code. Administrators invite everyone else from Studio → Team & couriers.
-- **Environment variables:** `DATABASE_URL` (required; use Neon's direct host, not the `-pooler` host, with `sslmode=verify-full`), `OPENAI_API_KEY` (enables translation and non-TXT source reading), `OPENAI_MODEL` (optional), `APP_ORIGIN` (optional; public origin when using a custom domain).
+- **Environment variables:** `DATABASE_URL` (required; use Neon's direct host, not the `-pooler` host, with `sslmode=verify-full`), `DEEPL_API_KEY` (enables translation), `APP_ORIGIN` (optional; public origin when using a custom domain).
 
 Key files:
 - `lib/translation.ts`: schemas, segmentation, specialty instructions and mechanical checks.
@@ -123,7 +129,7 @@ Links from those pages to the translator, orders, accounts and workspace point a
 
 ## Running on Netlify (alternative to Render)
 
-`netlify.toml` builds the app with `npm run build`; Netlify's Next.js runtime turns the pages and API routes into serverless functions, so there is no always-on server that can go to sleep. In the Netlify site's environment variables set `DATABASE_URL` (Neon's pooled `-pooler` host with `sslmode=verify-full`), `DATABASE_POOL_MAX=2`, `APP_ORIGIN` (the site's https address) and, for translation, `OPENAI_API_KEY`. Then link this repository under Site configuration → Build & deploy.
+`netlify.toml` builds the app with `npm run build`; Netlify's Next.js runtime turns the pages and API routes into serverless functions, so there is no always-on server that can go to sleep. In the Netlify site's environment variables set `DATABASE_URL` (Neon's pooled `-pooler` host with `sslmode=verify-full`), `DATABASE_POOL_MAX=2`, `APP_ORIGIN` (the site's https address) and, for translation, `DEEPL_API_KEY`. Then link this repository under Site configuration → Build & deploy.
 
 Uploads above 3 MB are sent in parts, which keeps each request within Netlify's size limit. Verified locally with `netlify build` and `netlify serve` against PostgreSQL, plus a 21-step browser run (sign-up, quotes, TXT upload, glossary, orders, studio, reports, team roles, sign-out, mobile width). Not yet verified on Netlify's own servers: the maximum upload size, the function run-time limit for long translation steps, and cold-start time. Netlify's local emulator turns an app-level 403 into a 404; the app itself returns 403.
 
@@ -139,7 +145,7 @@ TEST_DATABASE_URL=postgresql://user@127.0.0.1:5432/postgres npm test
 
 DOCX and XLSX exports were reopened with python-docx and openpyxl; formula-like values remain literal text. The main browser flows (invitation, quote, glossary, specialist order, studio views, team invitation, sign-out, mobile width) were exercised in Chromium.
 
-Limitations: live translation quality and provider access are unverified until the owner connects OpenAI. Real sample translations then need bilingual specialist assessment across the intended language pairs and subjects. No claim of zero errors or guaranteed accuracy is made.
+Limitations: live translation quality and provider access are unverified until the owner connects DeepL. Real sample translations then need bilingual specialist assessment across the intended language pairs and subjects. No claim of zero errors or guaranteed accuracy is made.
 
 ## Commercial defaults
 

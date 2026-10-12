@@ -4,7 +4,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- rows are untyped, matching the D1 API the routes use */
 import pg from 'pg';
 
-type Env={DATABASE_URL?:string;OPENAI_API_KEY?:string;OPENAI_MODEL?:string;APP_ORIGIN?:string;RENDER_EXTERNAL_URL?:string};
+type Env={DATABASE_URL?:string;DEEPL_API_KEY?:string;APP_ORIGIN?:string;RENDER_EXTERNAL_URL?:string};
 export const runtime=()=>({...(process.env as Env),DB:db(),BUCKET:bucket});
 
 // COUNT(*) and other int8 values are returned as numbers, not strings.

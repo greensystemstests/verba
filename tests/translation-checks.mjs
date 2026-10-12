@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {writeFile} from 'node:fs/promises';
-import {segmentSource,batchSegments,mechanicalChecks,validateSegments,translationInput,extractionSchema,highStakes,promptFor} from '../lib/translation.ts';
+import {segmentSource,batchSegments,mechanicalChecks,validateSegments,translationInput,highStakes} from '../lib/translation.ts';
 import {docx,xlsx,zip} from '../lib/office-export.ts';
 import {validDocx} from '../lib/file-validation.ts';
 let n=0;const check=(v,label)=>{assert(v,label);n++;};
@@ -12,7 +12,7 @@ check(mechanicalChecks([{id:'s1',text:'No allergies'}],[{id:'s1',translation:'Au
 for(const result of [[],[{id:'s2',translation:'text'}],[{id:'s1',translation:' '}],[{id:'s1',translation:'a'},{id:'s1',translation:'b'}]]){assert.throws(()=>validateSegments([{id:'s1',text:'source'}],result));n++;}
 const p={requestKey:crypto.randomUUID(),title:'Test',source:'English',target:'French',sector:'Medical',tone:'Faithful',text:'Test source',consent:true};
 check(translationInput.safeParse(p).success,'valid request');for(const patch of [{target:'English'},{consent:false},{tone:'Brand voice'},{fileId:crypto.randomUUID()},{text:' '.repeat(5)},{text:'a'.repeat(20001)}])check(!translationInput.safeParse({...p,...patch}).success,'invalid request');
-check(!extractionSchema.safeParse({text:' ',complete:true,detectedLanguage:'English',issues:[]}).success,'blank extraction');check(highStakes('Medical')&&highStakes('Legal')&&highStakes('Finance')&&!highStakes('Marketing'),'review by sector');check(promptFor(p,true).includes('negations')&&promptFor(p,true).includes('SOURCE'),'medical independent source review');
+check(highStakes('Medical')&&highStakes('Legal')&&highStakes('Finance')&&!highStakes('Marketing'),'review by sector');
 const word=docx('שלום <test>','Line 1\nDose ٥ mg & <script>','AI draft',true);check(validDocx(word),'valid DOCX');check(!validDocx(new TextEncoder().encode('PKgarbage')),'invalid zip');check(!validDocx(zip({'[Content_Types].xml':'x','word/document.xml':'x','word/vbaProject.bin':'evil'})),'macro rejected');check(!validDocx(zip({'[Content_Types].xml':'x','word/document.xml':'x','../evil':'x'})),'traversal rejected');
 await writeFile('/tmp/verba-test.docx',word);await writeFile('/tmp/verba-test.xlsx',xlsx([['Project','Amount'],['=SUM(A1:A2)','שלום & < >']]));
 console.log(`PASS: ${n} translation integrity, validation and format assertions`);

@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import {startApp} from './support/harness.mjs';
 import {createInvite} from '../scripts/lib/invite.mjs';
 let n=0,providerCalls=0;const check=(a,b,label)=>{assert.equal(a,b,label);n++;};
-const app=await startApp({name:'account_quote',env:{OPENAI_API_KEY:'fixture-only'}});
-app.setProvider(async req=>{providerCalls++;const b=await req.json();const input=JSON.parse(b.input[0].content[0].text);return Response.json({status:'completed',output:[{content:[{type:'output_text',text:JSON.stringify({segments:input.sourceSegments.map(s=>({id:s.id,translation:'Texte traduit 5 mg.'})),issues:[]})}]}]});});
+const app=await startApp({name:'account_quote',env:{DEEPL_API_KEY:'fixture-only'}});
+app.setProvider(async req=>{providerCalls++;const b=await req.json();return Response.json({translations:b.text.map(()=>({detected_source_language:'EN',text:'Texte traduit 5 mg.',billed_characters:20}))});});
 let cookie='';const userHeaders={'oai-authenticated-user-id':'legacy-owner','oai-authenticated-user-email':'owner@example.test'};
 async function request(route,{method='GET',body,auth=true,headers={}}={}){const h={...headers};if(auth&&cookie)h.cookie=cookie;const r=await fetch(app.base+route,{method,headers:{...h,...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined,redirect:'manual'});const content=await r.text();let data;try{data=JSON.parse(content);}catch{data=content;}return {status:r.status,data,headers:r.headers};}
 const post=(route,body,extra={})=>request(route,{method:'POST',body,...extra});

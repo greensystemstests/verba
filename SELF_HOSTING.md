@@ -13,7 +13,7 @@ The application originally ran on a managed Cloudflare Workers host (D1 database
 
 ## Still required before a public, commercial launch
 
-1. Provide `OPENAI_API_KEY` in Render's environment (never in source or chat). `lib/ai-provider.ts` calls the OpenAI Responses API; the privacy page names that provider. Replace both together if you change provider.
+1. Provide `DEEPL_API_KEY` in Render's and Netlify's environment (never in source or chat); use a DeepL API Pro key for confidential documents. `lib/deepl.ts` calls the DeepL API; the privacy page names that provider. Replace both together if you change provider.
 2. Custom domain: add it in Render, then set `APP_ORIGIN` to the new origin.
 3. Backups and retention: Neon keeps point-in-time history for its retention window; define retention/deletion policy and scheduled cleanup of expired sessions, invitations and rate-limit rows.
 4. Render's free plan sleeps when idle (first request after a pause is slow). Use a paid instance for production traffic.
