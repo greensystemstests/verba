@@ -4,7 +4,7 @@ import {startApp,caller} from './support/harness.mjs';
 import {docx,zip} from '../lib/office-export.ts';
 let count=0,mode='normal',calls=0,release,entered,glossaryCreated=0,glossaryDeleted=0,lastBody=null;
 const check=(a,b,label)=>{assert.equal(a,b,label);count++;};
-const app=await startApp({name:'translation',env:{DEEPL_API_KEY:'isolated-test-key-never-real'}});
+const app=await startApp({name:'translation',env:{DEEPL_API_KEY:'isolated-test-key-never-real',ACCESS_CODES:'unit-code:5000:6000'}});
 // Mock of DeepL: usage, language lists, glossaries and translation, matched at the HTTP boundary.
 app.setProvider(async req=>{
 const u=new URL(req.url);assert.equal(req.headers.get('authorization'),'DeepL-Auth-Key isolated-test-key-never-real');
@@ -77,6 +77,21 @@ mode='wait';j=await create();const atProvider=new Promise(r=>{entered=r;});const
 mode='strict';j=await create({sector:'Technology'});const before2=calls;r=await advance(j.id);check(r.status,200,'plain retry succeeds');check(calls-before2,2,'refused once, then accepted a plain request');check('model_type' in lastBody,false,'optional settings dropped on retry');check(r.data.usage['translating-0'].billed_characters>0,true,'billed characters estimated when DeepL does not report them');mode='normal';
 // Hebrew is a beta language at DeepL: the switch is sent, formality and glossary are not.
 j=await create({target:'Hebrew',tone:'Natural',sector:'Technology'});await advance(j.id);check(lastBody.enable_beta_languages,true,'beta switch sent for Hebrew');check('formality' in lastBody,false,'no formality for Hebrew');check('glossary_id' in lastBody,false,'no glossary for Hebrew');
+// Access code: free translation, a word limit instead of the character limit, every DeepL language, and a word budget.
+await app.db.query('UPDATE translations SET created=$1',['2000-01-01T00:00:00.000Z']);
+check((await call('/api/translations/code',{method:'POST',body:{code:'wrong'}})).status,400,'wrong code refused');check((await call('/api/translations/code',{method:'POST',actor:null,body:{code:'unit-code'}})).status,401,'code check needs sign-in');
+const codeCheck=await call('/api/translations/code',{method:'POST',body:{code:' Unit-Code '}});check(codeCheck.status,200,'code accepted, case and spaces ignored');check(codeCheck.data.maxWords,5000,'word limit reported');check(codeCheck.data.remaining,6000,'budget reported');
+check((await call('/api/translations',{method:'POST',body:{...base,text:'x '.repeat(10001),requestKey:crypto.randomUUID()}})).status,400,'long text refused without a code');
+check((await call('/api/translations',{method:'POST',body:{...base,target:'Swahili',requestKey:crypto.randomUUID()}})).status,400,'extra languages need a code');
+check((await call('/api/translations',{method:'POST',body:{...base,code:'bad',requestKey:crypto.randomUUID()}})).status,400,'bad code refused on creation');
+check((await call('/api/translations',{method:'POST',body:{...base,text:'word '.repeat(5001),code:'unit-code',requestKey:crypto.randomUUID()}})).status,400,'over the word limit refused');
+check((await call('/api/translations',{method:'POST',body:{...base,target:'Klingon',code:'unit-code',requestKey:crypto.randomUUID()}})).status,400,'unknown language refused even with a code');
+const longText=('Dose '.repeat(4500)).trim();let fj=await call('/api/translations',{method:'POST',body:{...base,title:'Free long text',target:'Swahili',text:longText,code:'unit-code',requestKey:crypto.randomUUID()}});check(fj.status,201,'long text in another language accepted with a code');
+let fq=await advance(fj.data.id);check(fq.data.quote.free,true,'quote is free');check(fq.data.quote.total,0,'free quote totals zero');check(fq.data.quote.words,4500,'words counted');check(fq.data.quote.lines[0].label,'Free with access code','free line labelled');
+const beforeLong=calls;let fa=await update(fj.data.id,{action:'accept_quote',accepted:true,version:fq.data.version,quoteId:fq.data.quote.id});check(fa.status,200,'free quote accepted');
+let st=fa.data;for(let i=0;i<30&&st.state==='translating';i++){st=(await advance(fj.data.id)).data;}check(st.state,'needs_review','long free translation completes');check(st.result.length,st.segments.length,'every piece translated');check(calls-beforeLong>1,true,'long text translated in several steps');check(lastBody.target_lang,'SW','Swahili code sent');check(lastBody.enable_beta_languages,true,'beta switch sent for an extra language');
+check((await call('/api/translations',{method:'POST',body:{...base,text:longText,code:'unit-code',requestKey:crypto.randomUUID()}})).status,429,'word budget stops a second long text');
+const smallCode=await call('/api/translations',{method:'POST',body:{...base,text:('Dose '.repeat(1000)).trim(),code:'unit-code',requestKey:crypto.randomUUID()}});check(smallCode.status,201,'smaller text still fits the remaining budget');check((await call('/api/translations/code',{method:'POST',body:{code:'unit-code'}})).data.remaining,1500,'budget reduced by the accepted translation');
 const secretFree=await call('/api/translations');check(JSON.stringify(secretFree.data).includes('isolated-test-key'),false,'no API secret exposed');
 // Seed the quota boundary in the isolated database and race two different requests.
 const owner=(await app.db.query('SELECT a.id,m.workspace FROM accounts a JOIN members m ON m.email=a.email WHERE a.email=$1',[ids.owner[1]])).rows[0];await app.db.query('UPDATE translations SET created=$1 WHERE workspace=$2',['2000-01-01T00:00:00.000Z',owner.workspace]);for(let i=0;i<19;i++)await app.db.query('INSERT INTO translations (id,workspace,owner,request_key,title,source,target,sector,tone,state,phase,model,created,updated) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)',['quota-'+i,owner.workspace,owner.id,'key-'+i,'quota','English','French','Medical','Faithful','cancelled','reading','test',new Date().toISOString(),new Date().toISOString()]);

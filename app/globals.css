@@ -67,3 +67,8 @@ body{background:#f7f8fa;color:#172c27}.site-header{background:#ffffffef}.quote-s
 .profile-avatar{display:grid;place-items:center;width:42px;height:42px;border-radius:50%;background:#24563b;color:#fff;font-weight:700;font-size:18px;flex:none}
 .settings-panel .address-grid{grid-template-columns:1fr 1fr}
 .settings-panel .address-grid>.field:first-child{grid-column:1/-1}
+.access-code{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:16px 20px 0}
+.access-code form{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.access-code input{min-width:200px;border:1px solid #d7e0cb;border-radius:9px;padding:8px 12px;background:#fff;font:inherit}
+.access-code-ok{display:inline-flex;align-items:center;gap:7px;padding:7px 12px;border-radius:999px;background:#e8f1e0;color:#24563b;font-weight:600;font-size:14px}
+.access-code .error-box{flex-basis:100%;margin:0}

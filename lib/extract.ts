@@ -6,7 +6,7 @@ import {MAX_SOURCE} from './translation';
 const unescapeXml=(s:string)=>s.replace(/&(#x?[0-9a-f]+|amp|lt|gt|quot|apos);/gi,(_,e:string)=>{const m=e.toLowerCase();if(m==='amp')return '&';if(m==='lt')return '<';if(m==='gt')return '>';if(m==='quot')return '"';if(m==='apos')return "'";const code=m.startsWith('#x')?parseInt(m.slice(2),16):parseInt(m.slice(1),10);return Number.isFinite(code)&&code>0&&code<0x110000?String.fromCodePoint(code):'';});
 const NO_TEXT='This file has no readable text, for example a scan or a photo. Paste the text instead, or upload a text-based PDF, Word or TXT file.';
 
-export async function extractSourceText(bytes:Uint8Array,type:string):Promise<string>{
+export async function extractSourceText(bytes:Uint8Array,type:string,limit=MAX_SOURCE):Promise<string>{
   let text='';
   if(type==='text/plain'){try{text=new TextDecoder('utf-8',{fatal:true}).decode(bytes);}catch{throw new HttpError(422,'Save the text document as UTF-8 and upload it again.');}}
   else if(type==='application/vnd.openxmlformats-officedocument.wordprocessingml.document'){
@@ -25,6 +25,6 @@ export async function extractSourceText(bytes:Uint8Array,type:string):Promise<st
   }
   else throw new HttpError(422,NO_TEXT);
   if(!text.trim())throw new HttpError(422,NO_TEXT);
-  if(text.length>MAX_SOURCE)throw new HttpError(422,'Source text is too long (the limit is 20,000 characters). Split longer documents into smaller files.');
+  if(text.length>limit)throw new HttpError(422,'Source text is too long (the limit is 20,000 characters). Split longer documents into smaller files.');
   return text;
 }

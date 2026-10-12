@@ -1,4 +1,5 @@
 import {runtime,HttpError} from './server';
+import {deeplLanguage,isBetaLanguage} from './deepl-languages';
 // DeepL translation client (https://developers.deepl.com). Keys ending in ":fx" belong to the
 // Free plan and use the api-free host. The API key never leaves the server.
 // Note: DeepL's Free plan may use submitted text to improve its service; only the Pro plan
@@ -7,11 +8,9 @@ export const providerName='DeepL';
 export const deeplReady=()=>!!runtime().DEEPL_API_KEY;
 const host=(key:string)=>key.endsWith(':fx')?'https://api-free.deepl.com':'https://api.deepl.com';
 
-// Verba language -> DeepL code. Targets that have variants name one; glossaries use the base code.
-const SOURCE:Record<string,string>={English:'EN',Hebrew:'HE',Arabic:'AR',French:'FR',German:'DE',Spanish:'ES',Italian:'IT',Portuguese:'PT',Russian:'RU',Bulgarian:'BG',Ukrainian:'UK',Chinese:'ZH',Japanese:'JA'};
-const TARGET:Record<string,string>={...SOURCE,English:'EN-US',Portuguese:'PT-PT'};
-export const sourceCode=(language:string)=>SOURCE[language]||language.slice(0,2).toUpperCase();
-export const targetCode=(language:string)=>TARGET[language]||sourceCode(language);
+// Verba language name -> DeepL code (see lib/deepl-languages.ts). Targets with variants name one; glossaries use the base code.
+export const sourceCode=(language:string)=>deeplLanguage(language)?.source||language.slice(0,2).toUpperCase();
+export const targetCode=(language:string)=>deeplLanguage(language)?.target||sourceCode(language);
 
 // DeepL refused the request itself (an option not allowed on this plan, or a bad key). translateTexts retries once without options.
 class Refused extends HttpError{}
@@ -41,7 +40,7 @@ const formalityFor=(tone:string)=>tone==='Faithful'?undefined:'prefer_less';
 
 export type TranslateOptions={source:string;target:string;sector:string;tone:string;glossaryId?:string|null};
 // DeepL treats some languages (Hebrew) as beta: they need a switch, and have no formality setting or glossaries.
-export const isBeta=(language:string)=>language==='Hebrew';
+export const isBeta=isBetaLanguage;
 const edges=(text:string)=>({lead:text.match(/^\s*/)?.[0]||'',trail:text.match(/\s*$/)?.[0]||''});
 // Translates each text separately and returns the results in the same order, plus billed characters.
 export async function translateTexts(texts:string[],o:TranslateOptions):Promise<{texts:string[];billed:number}>{

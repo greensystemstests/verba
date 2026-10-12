@@ -74,6 +74,16 @@ Translation uses the DeepL API. Set `DEEPL_API_KEY` in the server runtime (Rende
 **Settings**
 - Workspace and banner, prices, factors, texts, connections status and notification log.
 
+### Access codes (free test translation)
+
+An access code makes a translation free, lifts the limit to a number of words (instead of 20,000 characters), and unlocks every language DeepL offers (about 120, instead of the 13 in orders). People type it in the translator under "Have an access code?". Codes are set on the server in `ACCESS_CODES`, never in the code or the browser:
+
+```
+ACCESS_CODES=my-code:5000,other-code:2000:50000
+```
+
+Each entry is `code:wordsPerTranslation` with an optional third number, a total word budget for that code (counted when a quote is accepted). The code is not case sensitive. Remove it from `ACCESS_CODES` to switch it off; a free quote that was not yet accepted then stops being free. DeepL characters are billed to your DeepL account, so share codes with care: the Free DeepL plan allows 500,000 characters a month, roughly 14 translations of 5,000 words.
+
 ### Optional services (each turns on when its environment variables are set)
 
 | Service | Variables |
