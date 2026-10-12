@@ -14,7 +14,7 @@ export async function POST(r:Request){try{
   if(!parsed.success)throw new HttpError(400,parsed.error.issues.some(i=>i.path[0]==='agreed')?'Accept the terms and privacy notice to create an account':'Enter your first name, last name, a valid email and a password');
   const b=parsed.data;
   if(!await verifyCaptcha(b.captcha,ip))throw new HttpError(400,'Complete the security check and try again');
-  const problem=passwordProblem(b.password,[b.firstName,b.lastName,b.email.split('@')[0]]);if(problem)throw new HttpError(400,problem);
+  const problem=passwordProblem(b.password,[b.firstName,b.lastName,b.email.split('@')[0],b.email]);if(problem)throw new HttpError(400,problem);
   const phone=b.phone.trim()?normalizePhone(b.phonePrefix,b.phone):null;
   if(b.phone.trim()&&!phone)throw new HttpError(400,'Enter a valid phone number');
   const account=await createCustomerAccount({email:b.email,firstName:b.firstName,lastName:b.lastName,phone,password:b.password,language:b.language});

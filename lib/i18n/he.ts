@@ -1244,4 +1244,11 @@ export const he:Record<string,string>={
   "{sector} translation":"תרגום {sector}",
   "{shown} of {total} rows":"{shown} מתוך {total} שורות",
   "{size} KB · stored in your workspace":"{size} KB · נשמר בסביבת העבודה",
+  "Language, currency, notifications and password.":"שפה, מטבע, התראות וסיסמה.",
+  "My settings":"ההגדרות שלי",
+  "Phone number (optional)":"מספר טלפון (לא חובה)",
+  "Preferences":"העדפות",
+  "Used for deliveries and on your quotes.":"משמשת למשלוחים ולהצעות המחיר שלך.",
+  "Your details and address.":"הפרטים והכתובת שלך.",
+  "{count} orders":"{count} הזמנות",
 };

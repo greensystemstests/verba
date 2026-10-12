@@ -10,7 +10,9 @@ export function passwordProblem(password:string,personal:string[]=[]){
   if(password.length>128)return 'Use at most 128 characters.';
   const lower=password.toLowerCase();
   if(/^(.)\1+$/.test(password)||/^(0123456789|1234567890|qwertyuiop|password|passw0rd)/.test(lower))return 'Choose a less predictable password.';
-  if(personal.some(p=>p&&p.length>=4&&lower.includes(p.toLowerCase())))return 'Do not use your name or email in the password.';
+  // Only a password that is just the name or email (plus digits or symbols) is refused.
+  const letters=lower.replace(/[^\p{L}]/gu,'');
+  if(personal.some(p=>{const v=p?.toLowerCase().replace(/[^\p{L}]/gu,'');return !!v&&v.length>=3&&letters===v;})||personal.some(p=>p&&p.includes('@')&&lower.includes(p.toLowerCase())))return 'Do not use your name or email in the password.';
   return null;
 }
 export type NewAccount={email:string;firstName:string;lastName:string;phone?:string|null;password?:string;verified?:boolean;language?:string;company?:string;customerType?:string;country?:string};
