@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {PDFDocument,StandardFonts} from 'pdf-lib';
 import {startApp,caller} from './support/harness.mjs';
-import {docx} from '../lib/office-export.ts';
+import {docx,zip} from '../lib/office-export.ts';
 let count=0,mode='normal',calls=0,release,entered,glossaryCreated=0,glossaryDeleted=0,lastBody=null;
 const check=(a,b,label)=>{assert.equal(a,b,label);count++;};
 const app=await startApp({name:'translation',env:{DEEPL_API_KEY:'isolated-test-key-never-real'}});
@@ -12,7 +12,12 @@ if(u.pathname==='/v2/usage')return Response.json({character_count:1234,character
 if(u.pathname==='/v2/languages'){const all=['EN','HE','AR','FR','DE','ES','IT','PT','RU','UK','ZH','JA'];return Response.json((u.searchParams.get('type')==='source'?[...all,'BG']:all).map(language=>({language,name:language})));}
 if(u.pathname==='/v2/glossaries'&&req.method==='POST'){const b=await req.json();assert.equal(b.source_lang,'EN');assert.equal(b.target_lang,'FR');assert.equal(b.entries,'allergies\tallergie');glossaryCreated++;return Response.json({glossary_id:'gl-test-1'},{status:201});}
 if(u.pathname==='/v2/glossaries/gl-test-1'&&req.method==='DELETE'){glossaryDeleted++;return new Response(null,{status:204});}
-assert.equal(u.pathname,'/v2/translate');const b=await req.json();lastBody=b;assert(Array.isArray(b.text)&&b.text.length>=1);assert.equal(b.source_lang,'EN');assert.equal(b.target_lang,'FR');assert(!('tools' in b));calls++;
+assert.equal(u.pathname,'/v2/translate');const b=await req.json();assert(Array.isArray(b.text)&&b.text.length>=1);
+// Connection test sample and language probes.
+if(b.text[0]==='Hello')return b.target_lang==='BG'?Response.json({message:'Value for target_lang not supported.'},{status:400}):Response.json({translations:[{text:'Hallo'}]});
+if(b.text[0]==='Hello, how are you?')return Response.json({translations:[{text:'Hallo, wie geht es dir?'}]});
+lastBody=b;calls++;
+if(mode==='strict'&&(b.model_type||b.show_billed_characters||b.preserve_formatting||b.context||b.formality||b.glossary_id))return Response.json({message:'Parameter not available on this plan.'},{status:400});
 if(mode==='wait'){entered?.();await new Promise(r=>{release=r;});}
 if(mode==='rate')return Response.json({message:'Too many requests'},{status:429});
 if(mode==='quota')return Response.json({message:'Quota exceeded'},{status:456});
@@ -29,7 +34,7 @@ async function create(patch={},actor='owner'){const r=await call('/api/translati
 const advance=id=>call('/api/translations/'+id+'/advance',{method:'POST',body:{}});
 const update=(id,body,actor='owner')=>call('/api/translations/'+id,{method:'PATCH',body,actor});
 try{
-check((await call('/api/translations',{actor:null})).status,401,'anonymous denied');check((await call('/api/setup')).data.connected,true,'provider configured');const conn=await call('/api/setup',{method:'POST',body:{}});check(conn.status,200,'test connection');check(conn.data.usage.used,1234,'usage reported');check(JSON.stringify(conn.data.unsupported),'["Bulgarian"]','languages DeepL cannot translate are reported');
+check((await call('/api/translations',{actor:null})).status,401,'anonymous denied');check((await call('/api/setup')).data.connected,true,'provider configured');const conn=await call('/api/setup',{method:'POST',body:{}});check(conn.status,200,'test connection');check(conn.data.usage.used,1234,'usage reported');check(conn.data.sample,'Hallo, wie geht es dir?','real sample translation in the connection test');check(JSON.stringify(conn.data.unsupported),'["Bulgarian"]','languages DeepL cannot translate are reported');
 for(const role of ['reviewer','customer','courier'])check((await call('/api/team',{method:'POST',body:{name:'Synthetic '+role,email:ids[role][1],role,area:''}})).status,200,'create '+role);
 check((await call('/api/setup',{actor:'customer',method:'POST',body:{}})).status,403,'connection test admin only');
 check((await call('/api/translations',{actor:'courier',method:'POST',body:{...base,requestKey:crypto.randomUUID()}})).status,403,'courier cannot translate');
@@ -57,6 +62,9 @@ r=await upload('scan.pdf','application/pdf','%PDF-1.4 synthetic fixture');f=awai
 const pdfDoc=await PDFDocument.create();const font=await pdfDoc.embedFont(StandardFonts.Helvetica);pdfDoc.addPage().drawText('Take 5 mg daily. No known allergies.',{x:50,y:700,size:12,font});
 r=await upload('record.pdf','application/pdf',await pdfDoc.save());f=await create({text:'',fileId:r.data.id});r=await advance(f.id);check(r.data.state,'source_review','text PDF read locally');check(r.data.source_text.includes('Take 5 mg daily'),true,'PDF text extracted');
 r=await upload('record.docx','application/vnd.openxmlformats-officedocument.wordprocessingml.document',docx('Record','Take 5 mg daily. No known allergies.','Notice'));f=await create({text:'',fileId:r.data.id});r=await advance(f.id);check(r.data.state,'source_review','Word file read locally');check(r.data.source_text.includes('No known allergies.'),true,'Word text extracted');check(calls,callsBefore,'document reading never calls the provider');
+// A Word table keeps each row on one line, cells separated by " | ".
+const cell=t=>`<w:tc><w:tcPr><w:tcW w:w="3000" w:type="dxa"/></w:tcPr><w:p><w:r><w:t>${t}</w:t></w:r></w:p></w:tc>`;const tableDoc=zip({'[Content_Types].xml':'<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>','_rels/.rels':'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>','word/document.xml':`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>Laboratory findings:</w:t></w:r></w:p><w:tbl><w:tblPr/><w:tr><w:trPr/>${cell('Test')}${cell('Result')}</w:tr><w:tr>${cell('Troponin T')}${cell('1,850 ng/L &lt;14')}</w:tr></w:tbl><w:p><w:r><w:t>End of table.</w:t></w:r></w:p></w:body></w:document>`});
+r=await upload('labs.docx','application/vnd.openxmlformats-officedocument.wordprocessingml.document',tableDoc);f=await create({text:'',fileId:r.data.id});r=await advance(f.id);check(r.data.state,'source_review','Word table file read');check(r.data.source_text.includes('Test | Result\nTroponin T | 1,850 ng/L <14\nEnd of table.'),true,'table rows kept on one line');
 r=await upload('photo.png','image/png',new Uint8Array([137,80,78,71,13,10,26,10,0,0,0,0]));check((await call('/api/translations',{method:'POST',body:{...base,text:'',fileId:r.data.id,requestKey:crypto.randomUUID()}})).status,422,'photo has no readable text');
 mode='rate';let failed=await create();r=await advance(failed.id);check(r.status,429,'rate error visible');j=(await call('/api/translations/'+failed.id)).data;check(j.state,'failed','failed job saved');check(j.cursor,0,'retry retains step');mode='normal';check((await advance(failed.id)).data.state,'needs_review','retry completes');
 mode='missing';failed=await create();check((await advance(failed.id)).status,502,'missing sections rejected');mode='quota';check((await advance(failed.id)).status,429,'quota exhausted is explicit');mode='badkey';check((await advance(failed.id)).status,503,'bad key is explicit');mode='normal';check((await advance(failed.id)).status,409,'retry limit enforced');
@@ -65,6 +73,10 @@ mode='normal';j=await create({tone:'Natural',sector:'Technology'});await advance
 mode='numbers';j=await create({sector:'Technology'});r=await advance(j.id);check(r.data.state,'needs_review','QA gate in nonmedical');check(r.data.issues.some(i=>i.category==='Numbers'),true,'provider numeric error flagged');
 mode='normal';j=await create({sector:'Marketing'});r=await advance(j.id);check(r.data.state,'ready','noncritical draft ready');
 mode='wait';j=await create();const atProvider=new Promise(r=>{entered=r;});const pending=advance(j.id);await atProvider;check((await advance(j.id)).status,409,'concurrent advance locked');check((await call('/api/translations/'+j.id,{method:'DELETE'})).status,200,'cancel in flight');release();check((await pending).status,409,'late provider write discarded');check((await call('/api/translations/'+j.id)).data.state,'cancelled','cancel persists');mode='normal';
+// DeepL refusing optional settings (for example on a plan that does not allow them): the step retries once with a plain request.
+mode='strict';j=await create({sector:'Technology'});const before2=calls;r=await advance(j.id);check(r.status,200,'plain retry succeeds');check(calls-before2,2,'refused once, then accepted a plain request');check('model_type' in lastBody,false,'optional settings dropped on retry');check(r.data.usage['translating-0'].billed_characters>0,true,'billed characters estimated when DeepL does not report them');mode='normal';
+// Hebrew is a beta language at DeepL: the switch is sent, formality and glossary are not.
+j=await create({target:'Hebrew',tone:'Natural',sector:'Technology'});await advance(j.id);check(lastBody.enable_beta_languages,true,'beta switch sent for Hebrew');check('formality' in lastBody,false,'no formality for Hebrew');check('glossary_id' in lastBody,false,'no glossary for Hebrew');
 const secretFree=await call('/api/translations');check(JSON.stringify(secretFree.data).includes('isolated-test-key'),false,'no API secret exposed');
 // Seed the quota boundary in the isolated database and race two different requests.
 const owner=(await app.db.query('SELECT a.id,m.workspace FROM accounts a JOIN members m ON m.email=a.email WHERE a.email=$1',[ids.owner[1]])).rows[0];await app.db.query('UPDATE translations SET created=$1 WHERE workspace=$2',['2000-01-01T00:00:00.000Z',owner.workspace]);for(let i=0;i<19;i++)await app.db.query('INSERT INTO translations (id,workspace,owner,request_key,title,source,target,sector,tone,state,phase,model,created,updated) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)',['quota-'+i,owner.workspace,owner.id,'key-'+i,'quota','English','French','Medical','Faithful','cancelled','reading','test',new Date().toISOString(),new Date().toISOString()]);

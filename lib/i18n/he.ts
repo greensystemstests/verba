@@ -1267,4 +1267,5 @@ export const he:Record<string,string>={
   "Identifiers, URLs and units are checked automatically. Review code and commands, which an automatic translation engine may change.":"מזהים, כתובות URL ויחידות נבדקים אוטומטית. בדקו קוד ופקודות, שמנוע תרגום אוטומטי עלול לשנות.",
   "Claims, prices and numbers are checked automatically. Choose a less formal tone when adaptation matters more than literal phrasing.":"טענות, מחירים ומספרים נבדקים אוטומטית. בחרו טון פחות רשמי כשההתאמה חשובה יותר מניסוח מילולי.",
   "Translate. Check. Review.":"מתרגמים. בודקים. סוקרים.",
+  "Test translation: {text}":"תרגום בדיקה: {text}",
 };

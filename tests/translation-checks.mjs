@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {writeFile} from 'node:fs/promises';
-import {segmentSource,batchSegments,mechanicalChecks,validateSegments,translationInput,highStakes} from '../lib/translation.ts';
+import {segmentSource,batchSegments,mechanicalChecks,validateSegments,translationInput,highStakes,resultText} from '../lib/translation.ts';
 import {docx,xlsx,zip} from '../lib/office-export.ts';
 import {validDocx} from '../lib/file-validation.ts';
 let n=0;const check=(v,label)=>{assert(v,label);n++;};
@@ -10,6 +10,14 @@ for(const [s,t,category] of [['Take 5 mg','Prendre 50 mg','Numbers'],['Loss -5%'
 check(!mechanicalChecks([{id:'s1',text:'Dose 5 mg'}],[{id:'s1',translation:'جرعة ٥ mg'}],[]).some(i=>i.category==='Numbers'),'Arabic digits');
 check(mechanicalChecks([{id:'s1',text:'No allergies'}],[{id:'s1',translation:'Aucune allergie'}],[{source_term:'allergies',target_term:'hypersensibilité'}]).some(i=>i.category==='Terminology'),'glossary gate');
 for(const result of [[],[{id:'s2',translation:'text'}],[{id:'s1',translation:' '}],[{id:'s1',translation:'a'},{id:'s1',translation:'b'}]]){assert.throws(()=>validateSegments([{id:'s1',text:'source'}],result));n++;}
+// English to German: decimal commas, thousands points, localized units and spelled-out percentages are correct, real errors are not.
+const de={source:'English',target:'German'};const flags=(s,t,category)=>mechanicalChecks([{id:'s1',text:s}],[{id:'s1',translation:t}],[],de).some(i=>i.category===category);
+for(const [s,t] of [['creatinine 1.4 mg/dL, troponin 1,850 ng/L','Kreatinin 1,4 mg/dL, Troponin 1.850 ng/L'],['stent (3.5 × 24 mm) with TIMI 3 flow','Stent (3,5 × 24 mm) mit TIMI-3-Fluss'],['a 70% stenosis, HbA1c 7.8%','eine 70-prozentige Stenose, HbA1c 7,8 %'],['heparin 70 IU/kg, 52 mL/min/1.73 m²','Heparin 70 IE/kg, 52 ml/min/1,73 m²'],['4,230 pg/mL on 14 March 2026','4.230 pg/mL am 14. März 2026'],['ICD-10 I21.1','ICD-10 I21.1']]){check(!flags(s,t,'Numbers')&&!flags(s,t,'Units'),'correct German accepted: '+s);}
+for(const [s,t,category] of [['0.5 mg daily','5 mg täglich','Numbers'],['troponin 1,850 ng/L','Troponin 1,85 ng/L','Numbers'],['creatinine 1.4 mg/dL','Kreatinin 14 mg/dL','Numbers'],['Rate 5%','Rate 5','Numbers'],['loss -5 mmol/L','Verlust 5 mmol/L','Numbers'],['Take 5 mg','5 g einnehmen','Units']])check(flags(s,t,category),'real error caught: '+s);
+check(!mechanicalChecks([{id:'s1',text:'Metformin 500 mg, creatinine 1.4 mg/dL'}],[{id:'s1',translation:'מטפורמין 500 מ"ג, קריאטינין 1.4 מ"ג/דל'}],[],{source:'English',target:'Hebrew'}).some(i=>i.category==='Units'||i.category==='Numbers'),'Hebrew unit forms and decimals accepted');check(mechanicalChecks([{id:'s1',text:'Take 5 mg'}],[{id:'s1',translation:'5 מ"ג'}],[],{source:'English',target:'Hebrew'}).length===0,'localized units in Hebrew are not flagged');check(mechanicalChecks([{id:'s1',text:'Take 5 mg'}],[{id:'s1',translation:'Prenez 50 mg'}],[],{source:'English',target:'French'}).some(i=>i.category==='Numbers'),'wrong dose still caught in French');
+// Pieces end at sentence or paragraph boundaries, never inside a sentence.
+const prose=('The patient presented with chest pain and was treated with a stent. Dr. Smith noted no complications, e.g. no bleeding. '.repeat(9)+'\n\n').repeat(4);const pieces=segmentSource(prose);check(pieces.map(x=>x.text).join('')===prose,'prose split is lossless');check(pieces.slice(0,-1).every(x=>/[.!?]\s*$/.test(x.text)),'pieces end at sentence boundaries');check(pieces.slice(0,-1).every(x=>!/\b(?:e\.g|Dr)\.\s*$/.test(x.text)),'abbreviations are not sentence ends');check(pieces.every(x=>x.text.length<=1000),'pieces stay bounded');
+check(resultText([{id:'s1',translation:'Satz eins. '},{id:'s2',translation:'Satz zwei.'}])==='Satz eins. Satz zwei.','pieces keep their own spacing');check(resultText([{id:'s1',translation:'Eins.'},{id:'s2',translation:'Zwei.'}])==='Eins.\nZwei.','older trimmed pieces get a line break');
 const p={requestKey:crypto.randomUUID(),title:'Test',source:'English',target:'French',sector:'Medical',tone:'Faithful',text:'Test source',consent:true};
 check(translationInput.safeParse(p).success,'valid request');for(const patch of [{target:'English'},{consent:false},{tone:'Brand voice'},{fileId:crypto.randomUUID()},{text:' '.repeat(5)},{text:'a'.repeat(20001)}])check(!translationInput.safeParse({...p,...patch}).success,'invalid request');
 check(highStakes('Medical')&&highStakes('Legal')&&highStakes('Finance')&&!highStakes('Marketing'),'review by sector');

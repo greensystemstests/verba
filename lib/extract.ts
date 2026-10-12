@@ -13,7 +13,10 @@ export async function extractSourceText(bytes:Uint8Array,type:string):Promise<st
     try{
       const files=unzipSync(bytes,{filter:f=>f.name==='word/document.xml'&&f.originalSize<50_000_000});
       const xml=files['word/document.xml']?strFromU8(files['word/document.xml']):'';
-      text=unescapeXml(xml.replace(/<w:tab\s*\/>/g,'\t').replace(/<w:(?:br|cr)\s*\/>/g,'\n').replace(/<\/w:p>/g,'\n').replace(/<[^>]+>/g,'')).replace(/\n{3,}/g,'\n\n').trim();
+      // A table row becomes one line, with its cells separated by " | ", so rows stay together.
+      const cellText=(cell:string)=>cell.replace(/<\/w:p>/g,' ').replace(/<w:(?:tab|br|cr)\s*\/>/g,' ').replace(/<[^>]+>/g,'').replace(/\s+/g,' ').trim();
+      const flat=xml.replace(/<w:tr[ >][\s\S]*?<\/w:tr>/g,row=>`<w:p><w:r><w:t>${[...row.matchAll(/<w:tc[ >][\s\S]*?<\/w:tc>/g)].map(m=>cellText(m[0])).join(' | ')}</w:t></w:r></w:p>`);
+      text=unescapeXml(flat.replace(/<w:tab\s*\/>/g,'\t').replace(/<w:(?:br|cr)\s*\/>/g,'\n').replace(/<\/w:p>/g,'\n').replace(/<[^>]+>/g,'')).replace(/\n{3,}/g,'\n\n').trim();
     }catch{throw new HttpError(422,'This Word file could not be read. Save it again as .docx and upload it.');}
   }
   else if(type==='application/pdf'){
