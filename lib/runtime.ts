@@ -11,7 +11,7 @@ export const runtime=()=>({...(process.env as Env),DB:db(),BUCKET:bucket});
 pg.types.setTypeParser(20,v=>Number(v));
 
 const globalPool=globalThis as unknown as {__verbaPool?:pg.Pool};
-function pool(){if(!globalPool.__verbaPool){const connectionString=process.env.DATABASE_URL;if(!connectionString)throw new Error('DATABASE_URL is not configured');globalPool.__verbaPool=new pg.Pool({connectionString,max:Number(process.env.DATABASE_POOL_MAX||5),idleTimeoutMillis:30000,connectionTimeoutMillis:15000});globalPool.__verbaPool.on('error',e=>console.error('Database pool error',e.message));}return globalPool.__verbaPool;}
+function pool(){if(!globalPool.__verbaPool){const connectionString=process.env.DATABASE_URL||process.env.NEONKEY;if(!connectionString)throw new Error('DATABASE_URL is not configured');globalPool.__verbaPool=new pg.Pool({connectionString,max:Number(process.env.DATABASE_POOL_MAX||5),idleTimeoutMillis:30000,connectionTimeoutMillis:15000});globalPool.__verbaPool.on('error',e=>console.error('Database pool error',e.message));}return globalPool.__verbaPool;}
 
 type Meta={changes:number};
 export type RunResult={meta:Meta};
