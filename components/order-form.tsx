@@ -2,15 +2,16 @@
 // Online ordering (spec 1.1–1.8): one dynamic form per service, a live price, a
 // quotation PDF, and confirmation after signing in or creating an account.
 import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
-import {Upload,Plus,X,Check,FileText,Clock3,Bookmark,Globe2,ShieldCheck,ChevronLeft,Loader2,Download,Send,Mail,Truck,Stamp,Info} from 'lucide-react';
+import {Upload,Plus,X,Check,FileText,Clock3,Bookmark,Globe2,ShieldCheck,ChevronLeft,Loader2,Download,Send,Mail,Truck,Stamp,Info,DatabaseZap} from 'lucide-react';
 import {toast} from 'sonner';
 import {Dialog,DialogContent,DialogTitle,DialogDescription} from '@/components/ui/dialog';
 import {Pick,Field,CheckField,YesNo,api,json,sectorIcons,uploadFile,downloadFrom} from './verba-ui';
 import {AddressFields,PhoneField,CountrySelect} from './fields';
 import Captcha from './captcha';
 import {useT} from './i18n';
-import {sectors,languages,services,urgencies,notaryTypes,formats,subjects,documentTypes,certificateTypes,extraServices,deliveryTimings,currencies,newOrder,newDocument,quote,money,orderSchema,basePricing,translates,isCertificate,notaryOptional,hasNotary,wordCount,MAX_FREE_TEXT_WORDS,normalizeOrder,type Order,type Service,type Pricing,type CustomerKind,type Level} from '@/lib/catalog';
+import {sectors,languages,services,urgencies,notaryTypes,formats,subjects,documentTypes,certificateTypes,extraServices,deliveryTimings,currencies,newOrder,newDocument,quote,money,orderSchema,basePricing,translates,isCertificate,notaryOptional,hasNotary,wordCount,MAX_FREE_TEXT_WORDS,normalizeOrder,memoryPriced,defaultFactors,type Order,type Service,type Pricing,type CustomerKind,type Level} from '@/lib/catalog';
 import {orderRows} from '@/lib/order-text';
+import {MemoryBar} from './memory-bar';
 import {splitPhone} from '@/lib/geo';
 const STORE='verba-order-v2';
 type StepKey='details'|'documents'|'options'|'notary'|'delivery'|'courier'|'summary';
@@ -34,6 +35,12 @@ export default function OrderForm({embedded=false}:{embedded?:boolean}){
   const steps=stepsFor(o.service);const key=steps[step];
   const q=useMemo(()=>quote(o,pricing,kind),[o,pricing,kind]);
   const m=(cents:number)=>money(cents,o.currency,pricing,lang);
+  // Translation-memory analysis of the uploaded files ("accurate analysis"); the server repeats it when the order is saved.
+  const fileKey=o.documents.flatMap(d=>d.fileIds).join(',');const targetKey=o.targets.join(',');
+  const [memoryBusy,setMemoryBusy]=useState(false);
+  useEffect(()=>{let alive=true;const timer=setTimeout(()=>{if(!memoryPriced(o.service)||!fileKey||!targetKey){setO(x=>x.memory?{...x,memory:null}:x);return;}setMemoryBusy(true);api('/api/memory/analyse',json({service:o.service,source:o.source,targets:targetKey.split(','),fileIds:fileKey.split(',')})).then(r=>{if(alive)setO(x=>({...x,memory:(r.memory as Order['memory'])||null}));}).catch(()=>{}).finally(()=>{if(alive)setMemoryBusy(false);});},400);
+    return ()=>{alive=false;clearTimeout(timer);};},[o.service,o.source,fileKey,targetKey]);
+  const memoryMatched=o.memory&&Object.values(o.memory).some(a=>a.words>(a.bands.new||0));
   const set=<K extends keyof Order>(k:K,v:Order[K])=>setO(x=>({...x,[k]:v}));
   const onCaptcha=useCallback((v:string)=>setCaptcha(v),[]);
 
@@ -159,6 +166,8 @@ export default function OrderForm({embedded=false}:{embedded?:boolean}){
       {key==='documents'&&<><div className="section-heading"><h3>{t('Give every document a home.')}</h3><p>{t('Upload now, or enter the details to estimate first.')}</p></div>{docsBlock}</>}
       {key==='options'&&<><div className="section-heading"><h3>{t('Rated price')}</h3><p>{o.service==='Translation validation'?t('Validation of an existing translation, priced by words.'):t('Choose the translation level. Prices are for your documents and languages.')}</p></div>
         {priceCards}{o.service==='Translation validation'&&<div className="level-cards"><div className="level-card active"><strong>{t('Validation')}</strong><small>{t('A second linguist checks the translation against the source.')}</small><span className="level-price">{m(Math.round(q.base*100))}</span></div></div>}
+        {memoryPriced(o.service)&&fileKey&&<div className={'memory-card'+(memoryMatched?' matched':'')}><div className="memory-card-head"><DatabaseZap size={18}/><div><b>{t('Translation memory analysis')}</b><small>{memoryBusy?t('Comparing your files with our translation memory…'):memoryMatched?(q.memory>0.005?t('Parts of your files were translated before. Matched words cost less: {saving} off.',{saving:m(Math.round(q.memory*100))}):t('Parts of your files were translated before. This order is at the minimum price, so the discount does not change the total.')):t('No earlier translations match your files, so every word is priced in full.')}</small></div>{memoryBusy&&<Loader2 size={16} className="spin"/>}</div>
+          {memoryMatched&&o.memory&&Object.entries(o.memory).map(([lang2,a])=><div key={lang2} className="memory-target"><span>{o.source} → {t(lang2)}</span><MemoryBar analysis={a} weights={{...defaultFactors.memory,...(pricing.factors.memory||{})}}/></div>)}</div>}
         <div className="two-col"><Pick label={t('Urgency')} value={o.urgency} onChange={v=>set('urgency',v as Order['urgency'])} options={urgencies.map(u=>({value:u,label:urgencyLabel(u)}))}/><CheckField label={t('Layout and formatting (DTP)')} checked={o.dtp} onChange={v=>set('dtp',v)}>{t('Keep fonts, colours and layout as in the original (+{price} per page).',{price:m(Math.round(pricing.dtpPage*100))})}</CheckField></div>
         {notaryOptional(o.service)&&<YesNo label={t('Notarized certificate required?')} value={o.notary} onChange={v=>set('notary',v)}/>}
         {hasNotary(o)&&notaryBlock()}

@@ -5,7 +5,7 @@ export const MAX_SOURCE=20000;
 export const MAX_SOURCE_WITH_CODE=400000;
 export const translationInput=z.object({requestKey:z.string().uuid(),title:z.string().trim().min(1).max(160),source:z.string().trim().min(1).max(60),target:z.string().trim().min(1).max(60),sector:z.enum(sectors),tone:z.enum(['Faithful','Natural','Brand voice']).default('Faithful'),text:z.string().max(MAX_SOURCE_WITH_CODE).default(''),code:z.string().trim().max(100).optional(),fileId:z.string().uuid().optional(),consent:z.literal(true)}).superRefine((v,c)=>{if(v.source===v.target)c.addIssue({code:'custom',message:'Choose a different target language'});if((!!v.text.trim())===(!!v.fileId))c.addIssue({code:'custom',message:'Paste text or upload one file, not both'});if(v.sector!=='Marketing'&&v.tone==='Brand voice')c.addIssue({code:'custom',message:'Brand voice is available for marketing only'});});
 export type Segment={id:string;text:string};
-export type Translated={id:string;translation:string};
+export type Translated={id:string;translation:string;memory?:boolean};
 export type Issue={id:string;severity:'critical'|'warning'|'info';segmentId:string;category:string;message:string;resolved:boolean;resolution?:string};
 export type Term={source_term:string;target_term:string};
 // Abbreviations whose full stop does not end a sentence.

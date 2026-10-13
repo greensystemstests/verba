@@ -84,6 +84,22 @@ ACCESS_CODES=my-code:2000,other-code:2000:50000
 
 Each entry is `code:wordsPerTranslation` with an optional third number, a total word budget for that code (counted when a quote is accepted). The code is not case sensitive. Remove it from `ACCESS_CODES` to switch it off; a free quote that was not yet accepted then stops being free. DeepL characters are billed to your DeepL account, so share codes with care: the Free DeepL plan allows 500,000 characters a month, roughly 35 translations of 2,000 words.
 
+### Customer-service assistant (OpenAI)
+
+The support chat (the "Chat with us" window, the customer's Customer service page and the staff inbox) can be answered by an assistant. Set `OPENAI_API_KEY` in the server runtime (Render and Netlify); optionally `OPENAI_CHAT_MODEL` (falls back to `OPENAI_MODEL`). Settings → Workspace has an on/off switch and "Notes for the assistant" (opening hours, policies…).
+
+- It answers with the services, the price list and the signed-in customer's own orders; requests are sent with `store:false`.
+- It hands the conversation to a person when the customer asks, complains, asks about refunds, payment or changes, or when it is unsure. Staff get an email and the conversation appears under **Waiting** in the inbox.
+- A staff reply turns the assistant off for that conversation; staff can turn it back on, and "Draft with AI" writes a suggested reply to edit.
+- If OpenAI fails or is slow, the customer is told a person will reply and the conversation moves to the team.
+
+### Translation memory
+
+Finished translations are stored as source/target pairs (machine quality; replaced when a reviewer approves the job). Staff can import TMX or two-column CSV/TSV files and export TMX under **Translation memory**, and check any text sentence by sentence.
+
+- **Reuse:** when translating, sections that are already in memory (as a whole or sentence by sentence) are reused without calling DeepL.
+- **Analysis and price:** uploaded order files and translator jobs are compared with the memory: repetitions, 100%, 95–99%, 85–94%, 75–84% and no match (numbers count as placeholders). Each band is charged a percentage of the word price (Settings → Price factors → Translation memory discounts; defaults 25 / 30 / 60 / 80 / 90 / 100%). The server recalculates the analysis; values sent by a browser are ignored.
+
 ### Optional services (each turns on when its environment variables are set)
 
 | Service | Variables |

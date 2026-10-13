@@ -23,7 +23,7 @@ export default async function RootLayout({
   const overrides = await textOverrides(lang);
   return (
     <html lang={lang} dir={dirOf(lang)}>
-      <body className="antialiased"><I18nProvider lang={lang} overrides={overrides}>{children}</I18nProvider><Toaster richColors position={lang === "he" ? "bottom-left" : "bottom-right"} /></body>
+      <body className="antialiased"><I18nProvider lang={lang} overrides={overrides}>{children}</I18nProvider><Toaster richColors position="top-center" /></body>
     </html>
   );
 }

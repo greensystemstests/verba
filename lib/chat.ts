@@ -3,7 +3,7 @@
 import {db,HttpError,primaryWorkspace,type Ctx} from './server';
 import {guestKey} from './account';
 import {notify} from './notify';
-export type Conversation={id:string;workspace:string;account_id:string|null;guest_hash:string|null;name:string;email:string;subject:string;kind:string;order_id:string|null;status:string;assignee:string|null;last_message_at:string;staff_read_at:string|null;customer_read_at:string|null;created:string};
+export type Conversation={id:string;workspace:string;account_id:string|null;guest_hash:string|null;name:string;email:string;subject:string;kind:string;order_id:string|null;status:string;assignee:string|null;assistant:string;last_message_at:string;staff_read_at:string|null;customer_read_at:string|null;created:string};
 export type Viewer={kind:'staff';c:Ctx}|{kind:'customer';c:Ctx}|{kind:'guest';key:string;workspace:string};
 export async function viewer(c:Ctx|null,createGuest=false):Promise<{v:Viewer|null;cookie?:string}>{
   if(c)return {v:{kind:c.staff?'staff':'customer',c}};
@@ -20,12 +20,13 @@ export async function conversationAccess(v:Viewer,id:string){
   if(v.kind==='guest'&&conv.guest_hash===v.key)return conv;
   throw new HttpError(404,'Conversation not found');
 }
-export async function addMessage(conv:Conversation,sender:{kind:'customer'|'staff'|'system';email:string;name:string},body:string){
+export async function addMessage(conv:Conversation,sender:{kind:'customer'|'staff'|'system'|'assistant';email:string;name:string},body:string){
   const now=new Date().toISOString();
   const read=sender.kind==='staff'?'staff_read_at':sender.kind==='customer'?'customer_read_at':null;
   await db().batch([db().prepare('INSERT INTO conversation_messages (id,conversation_id,sender_kind,sender_email,sender_name,body,created) VALUES (?,?,?,?,?,?,?)').bind(crypto.randomUUID(),conv.id,sender.kind,sender.email,sender.name,body,now),read?db().prepare(`UPDATE conversations SET last_message_at=?, status='open', ${read}=? WHERE id=?`).bind(now,now,conv.id):db().prepare("UPDATE conversations SET last_message_at=?, status='open' WHERE id=?").bind(now,conv.id)]);
   return now;
 }
+export async function workspaceConfig(workspace:string):Promise<import('./server').WorkspaceConfig>{const w=await db().prepare('SELECT config FROM workspaces WHERE id=?').bind(workspace).first<{config:string}>();try{return JSON.parse(w?.config||'{}');}catch{return {};}}
 export async function staffEmail(workspace:string){
   const w=await db().prepare('SELECT config FROM workspaces WHERE id=?').bind(workspace).first<{config:string}>();
   let cfg:{notifyEmail?:string}={};try{cfg=JSON.parse(w?.config||'{}');}catch{}

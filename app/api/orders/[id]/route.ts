@@ -1,6 +1,7 @@
 import {context,db,failure,access,publicOrder,event,HttpError,siteOrigin,type OrderRow,type Ctx} from '@/lib/server';
 import {orderSchema,paymentStates,hasCourier,addBusinessDays} from '@/lib/catalog';
 import {quoteFor,shipmentStatement,nextNumber,afterSubmit,notifyOrderCustomer} from '@/lib/order-flow';
+import {withMemory} from '@/lib/memory';
 import {sendToMainSystem} from '@/lib/handoff';
 import {z} from 'zod';
 const shipmentSteps=['Awaiting assignment','Assigned','Collected','In transit','Delivered'];
@@ -103,6 +104,7 @@ export async function PUT(r:Request,{params}:{params:Promise<{id:string}>}){try{
   if(b.submit&&!parsed.data.agreed)throw new HttpError(400,'Please accept the service terms');
   const ids=parsed.data.documents.flatMap(d=>d.fileIds);
   for(const id of ids){const f=await db().prepare('SELECT id FROM files WHERE id = ? AND workspace = ? AND (order_id = ? OR (owner = ? AND order_id IS NULL))').bind(id,c.workspace.id,o.id,c.u.userId).first();if(!f)throw new HttpError(400,'Invalid document attachment');}
+  parsed.data=await withMemory(c,parsed.data);
   const q=await quoteFor(c,parsed.data);const status=b.submit?'Submitted':'Draft';const marker=crypto.randomUUID();const now=new Date();
   const payload={...parsed.data,_quote:{lines:q.lines,total:q.total,days:q.days,carrier:q.carrier}};
   const statements=[db().prepare('UPDATE orders SET payload = ?, total = ?, status = ?, currency = ?, due_date = ?, updated = ? WHERE id = ? AND status = ? AND updated = ? AND payload = ?').bind(JSON.stringify(payload),q.total,status,parsed.data.currency,b.submit?addBusinessDays(now,q.days).toISOString().slice(0,10):null,now.toISOString(),o.id,'Draft',o.updated,o.payload),db().prepare('INSERT INTO events (id,workspace,order_id,actor,action,created) SELECT ?,?,?,?,?,? WHERE changes()=1').bind(marker,c.workspace.id,o.id,c.u.email,b.submit?'Edited quote submitted for review':'Draft quote updated',now.toISOString()),db().prepare("UPDATE files SET order_id=NULL WHERE order_id=? AND purpose='source' AND id NOT IN (SELECT jsonb_array_elements_text(?::jsonb)) AND EXISTS (SELECT 1 FROM events WHERE id=?)").bind(o.id,JSON.stringify(ids),marker),...ids.map(id=>db().prepare('UPDATE files SET order_id = ? WHERE id = ? AND workspace = ? AND EXISTS (SELECT 1 FROM events WHERE id=?)').bind(o.id,id,c.workspace.id,marker))];

@@ -9,7 +9,7 @@ export function orderRows(o:Order,q:Quote,t:T,lang:Lang):[string,string][]{
   if(o.service==='Additional services')return [...rows,[t('Type of service'),t(o.extraType)],[t('Description'),o.description||'—']];
   if(translates(o.service))rows.push([t('Translation field'),t(o.sector)],[t('What is translated'),t(o.subject)],[t('Languages'),t('{from} → {to}',{from:t(o.source),to:o.targets.map(x=>t(x)).join(', ')})]);
   if(o.description)rows.push([t('Document description'),o.description]);
-  if(o.documents.length&&o.service!=='Courier only')rows.push([t('Documents'),o.documents.map(d=>`${d.name} (${t(d.type)}, ${d.quantity>1?d.quantity+' × ':''}${t('{n} pages',{n:d.pages})}, ${t('{n} words',{n:d.words||d.pages*250})}, ${d.format})`).join('; ')]);
+  if(o.documents.length&&o.service!=='Courier only')rows.push([t('Documents'),o.documents.map(d=>`${d.name} (${t(d.type)}, ${d.quantity>1?d.quantity+' × ':''}${d.pages===1?t('1 page'):t('{n} pages',{n:d.pages})}, ${t('{n} words',{n:d.words||d.pages*250})}, ${d.format})`).join('; ')]);
   if(translates(o.service)&&o.service!=='Translation validation')rows.push([t('Service level'),t(o.level)]);
   if(translates(o.service))rows.push([t('Language review'),o.validation||o.service==='Translation validation'?t('Yes'):t('No')],[t('Layout and formatting (DTP)'),o.dtp?t('Yes'):t('No')],[t('Urgency'),t(o.urgency)]);
   if(hasNotary(o))rows.push([t('Notary service'),`${t(o.notaryType)} · ${o.copies===1?t('1 copy'):t('{n} copies',{n:o.copies})} · ${t(o.notaryUrgency)}`],[t('Physical arrival'),o.physical?t('Yes'):t('No')]);

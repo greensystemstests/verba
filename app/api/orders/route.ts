@@ -1,13 +1,15 @@
 import {context,db,failure,publicOrder,event,HttpError,type OrderRow} from '@/lib/server';
 import {orderSchema,orderReference,hasCourier,addBusinessDays} from '@/lib/catalog';
 import {quoteFor,shipmentStatement,nextNumber,afterSubmit} from '@/lib/order-flow';
+import {withMemory} from '@/lib/memory';
 export async function GET(){try{const c=await context();const q=c.staff?db().prepare('SELECT * FROM orders WHERE workspace = ? ORDER BY created DESC LIMIT 1000').bind(c.workspace.id):db().prepare('SELECT * FROM orders WHERE workspace = ? AND (owner = ? OR assignee = ? OR courier = ? OR vendor = ? OR id IN (SELECT order_id FROM shipments WHERE workspace = ? AND (courier = ? OR return_courier = ?))) ORDER BY created DESC LIMIT 1000').bind(c.workspace.id,c.u.userId,c.member.email,c.member.email,c.member.email,c.workspace.id,c.member.email,c.member.email);return Response.json((await q.all<OrderRow>()).results.map(o=>publicOrder(o,c)));}catch(e){return failure(e);}}
 export async function POST(r:Request){try{const c=await context(r);const b=await r.json() as {payload?:unknown;submit?:boolean};
-  const parsed=orderSchema.safeParse(b.payload);if(!parsed.success)throw new HttpError(400,parsed.error.issues[0].message);const o=parsed.data;
+  const parsed=orderSchema.safeParse(b.payload);if(!parsed.success)throw new HttpError(400,parsed.error.issues[0].message);let o=parsed.data;
   if(o.service==='Additional services')throw new HttpError(400,'Send additional service requests with the inquiry form');
   if(b.submit&&!o.agreed)throw new HttpError(400,'Please accept the order terms');
   const ids=o.documents.flatMap(d=>d.fileIds);
   for(const id of ids){const f=await db().prepare('SELECT id FROM files WHERE id = ? AND workspace = ? AND owner = ? AND order_id IS NULL').bind(id,c.workspace.id,c.u.userId).first();if(!f)throw new HttpError(400,'A document upload is missing or already attached');}
+  o=await withMemory(c,o);
   const id=crypto.randomUUID();const number=await nextNumber('order_number_seq');const ref=orderReference(number);const now=new Date();
   const q=await quoteFor(c,o);const status=b.submit?'Submitted':'Draft';const due=b.submit?addBusinessDays(now,q.days).toISOString().slice(0,10):null;
   const payload={...o,_quote:{lines:q.lines,total:q.total,days:q.days,carrier:q.carrier}};

@@ -2,7 +2,7 @@
 // The signed-in workspace. Each role gets its own menu and home (spec: customer area,
 // delivery management 1.9–1.12, courier area 1.13, notary area 1.15–1.16, chat 1.17).
 import {useCallback,useEffect,useMemo,useState} from 'react';
-import {LayoutDashboard,Files,Truck,Scale,Users,BarChart3,Settings,Plus,MessageCircle,LogOut,Globe2,UserRound,SlidersHorizontal,Bike,Contact,RefreshCw,FolderOpen,MailWarning} from 'lucide-react';
+import {LayoutDashboard,Files,Truck,Scale,Users,BarChart3,Settings,Plus,MessageCircle,LogOut,Globe2,UserRound,SlidersHorizontal,Bike,Contact,RefreshCw,FolderOpen,MailWarning,DatabaseZap} from 'lucide-react';
 import {toast} from 'sonner';
 import {useRouter} from 'next/navigation';
 import Link from 'next/link';
@@ -17,20 +17,21 @@ import {OrdersView,NotaryView,ProjectsReport,Overview} from './studio/views-orde
 import {DeliveriesView,CouriersView,CustomersView,DeliveryReport,CourierArea} from './studio/views-deliveries';
 import {InboxView,SupportView} from './studio/views-chat';
 import {TeamView,SettingsView,ProfileView,AccountSettingsView} from './studio/views-admin';
+import {MemoryView} from './studio/views-memory';
 import type {ChatConversation} from './chat';
 import type {WorkspaceInfo,OrderView,ShipmentView,Role} from './studio/types';
-type View='overview'|'orders'|'new'|'deliveries'|'couriers'|'customers'|'notary'|'notary-reports'|'inbox'|'support'|'reports'|'team'|'settings'|'profile'|'account'|'courier'|'courier-reports';
-const icons:Record<View,typeof Files>={overview:LayoutDashboard,orders:Files,new:Plus,deliveries:Truck,couriers:Bike,customers:Contact,notary:Scale,'notary-reports':BarChart3,inbox:MessageCircle,support:MessageCircle,reports:BarChart3,team:Users,settings:Settings,profile:UserRound,account:SlidersHorizontal,courier:Truck,'courier-reports':BarChart3};
+type View='memory'|'overview'|'orders'|'new'|'deliveries'|'couriers'|'customers'|'notary'|'notary-reports'|'inbox'|'support'|'reports'|'team'|'settings'|'profile'|'account'|'courier'|'courier-reports';
+const icons:Record<View,typeof Files>={memory:DatabaseZap,overview:LayoutDashboard,orders:Files,new:Plus,deliveries:Truck,couriers:Bike,customers:Contact,notary:Scale,'notary-reports':BarChart3,inbox:MessageCircle,support:MessageCircle,reports:BarChart3,team:Users,settings:Settings,profile:UserRound,account:SlidersHorizontal,courier:Truck,'courier-reports':BarChart3};
 const menus:Record<Role,[View,string][]>={
-  admin:[['overview','Main'],['orders','Projects & quotes'],['deliveries','Deliveries'],['couriers','Couriers'],['customers','Customers'],['notary','Notary desk'],['inbox','Customer service'],['reports','Reports'],['team','Team'],['settings','Settings'],['profile','Personal information'],['account','My settings']],
-  staff:[['overview','Main'],['orders','Projects & quotes'],['deliveries','Deliveries'],['couriers','Couriers'],['customers','Customers'],['notary','Notary desk'],['inbox','Customer service'],['reports','Reports'],['profile','Personal information'],['account','My settings']],
+  admin:[['overview','Main'],['orders','Projects & quotes'],['deliveries','Deliveries'],['couriers','Couriers'],['customers','Customers'],['notary','Notary desk'],['inbox','Customer service'],['memory','Translation memory'],['reports','Reports'],['team','Team'],['settings','Settings'],['profile','Personal information'],['account','My settings']],
+  staff:[['overview','Main'],['orders','Projects & quotes'],['deliveries','Deliveries'],['couriers','Couriers'],['customers','Customers'],['notary','Notary desk'],['inbox','Customer service'],['memory','Translation memory'],['reports','Reports'],['profile','Personal information'],['account','My settings']],
   customer:[['new','Create a new order'],['orders','Orders / offers'],['support','Customer service'],['profile','Personal information'],['account','My settings']],
   notary:[['notary','Main'],['notary-reports','Reports'],['profile','Personal information'],['account','My settings']],
   courier:[['courier','Deliveries'],['courier-reports','Reports'],['profile','Personal information'],['account','My settings']],
   vendor:[['orders','My assignments'],['profile','Personal information'],['account','My settings']],
   reviewer:[['orders','My assignments'],['profile','Personal information'],['account','My settings']],
 };
-const headings:Partial<Record<View,[string,string]>>={overview:['A little clarity. A lot of progress.','Every order, from first words to final delivery.'],orders:['Orders','Your quotes and orders, always within reach.'],new:['Create a new order','Choose a service and get a price in a few minutes.'],deliveries:['Deliveries','View active shipments and update existing shipments.'],couriers:['Couriers','Courier cards, active deliveries and mission history.'],customers:['Customers','Customers who ordered services or deliveries, and their activity.'],notary:['Notary work area','All orders open for notary care.'],'notary-reports':['Notary reports','Summary reports of notarial work.'],inbox:['Customer service','Conversations with customers in real time.'],support:['Customer service','Talk to our team about any order or question.'],reports:['Reports','Issue reports by customers, couriers, addresses and dates.'],team:['Team','Give every person the right access.'],settings:['Settings','Prices, languages and connections.'],profile:['Personal information','Your details and address.'],account:['My settings','Language, currency, notifications and password.'],courier:['Deliveries available','Deliveries in your area and the ones you are handling.'],'courier-reports':['My deliveries','All the deliveries you made.']};
+const headings:Partial<Record<View,[string,string]>>={memory:['Translation memory','Reuse what you have already translated: match analysis, discounts and consistent wording.'],overview:['A little clarity. A lot of progress.','Every order, from first words to final delivery.'],orders:['Orders','Your quotes and orders, always within reach.'],new:['Create a new order','Choose a service and get a price in a few minutes.'],deliveries:['Deliveries','View active shipments and update existing shipments.'],couriers:['Couriers','Courier cards, active deliveries and mission history.'],customers:['Customers','Customers who ordered services or deliveries, and their activity.'],notary:['Notary work area','All orders open for notary care.'],'notary-reports':['Notary reports','Summary reports of notarial work.'],inbox:['Customer service','Conversations with customers in real time.'],support:['Customer service','Talk to our team about any order or question.'],reports:['Reports','Issue reports by customers, couriers, addresses and dates.'],team:['Team','Give every person the right access.'],settings:['Settings','Prices, languages and connections.'],profile:['Personal information','Your details and address.'],account:['My settings','Language, currency, notifications and password.'],courier:['Deliveries available','Deliveries in your area and the ones you are handling.'],'courier-reports':['My deliveries','All the deliveries you made.']};
 
 export default function Studio(){
   const {t,dir}=useT();const router=useRouter();
@@ -58,10 +59,10 @@ export default function Studio(){
       {['admin','staff','customer','reviewer','vendor'].includes(ws.role)&&<div className="sidebar-links"><Link className="button secondary small" href="/"><Globe2 size={16}/>{t('Translation studio')}</Link></div>}</SidebarContent>
     <SidebarFooter><div className="workspace-user"><span className="avatar">{(ws.user.name||'V')[0].toUpperCase()}</span><div><strong>{ws.user.name}</strong><small>{t(ws.role)}</small></div><button className="icon-button" aria-label={t('Log out')} onClick={signOut}><LogOut size={17} className="flip-rtl"/></button></div></SidebarFooter></Sidebar>
     <SidebarInset className="studio-inset"><header className="studio-topbar"><div><SidebarTrigger/><span className="topbar-user">{t('Username')}: <b>{ws.user.name}</b>{ws.user.company?`, ${ws.user.company}`:ws.role!=='customer'?`, ${ws.workspace}`:''}</span></div><div className="topbar-actions"><LanguageSwitch/>{(ws.role==='customer'||staff)&&view!=='new'&&<a className="button primary small" href={ws.role==='customer'?'/studio?view=new':'/order'} onClick={e=>{if(ws.role==='customer'){e.preventDefault();go('new');}}}><Plus size={15}/>{t('Create a new order')}</a>}<button className="button secondary small" onClick={signOut}><LogOut size={15} className="flip-rtl"/>{t('Log out')}</button></div></header>
-      <main className="studio-main">
+      <main className={'studio-main view-'+view}>
         {!ws.user.emailVerified&&ws.role==='customer'&&!!(ws.connections as Record<string,unknown>).email&&<div className="panel-notice verify-banner"><MailWarning size={17}/>{t('Please confirm your email address. We sent you a link when you registered.')} <button className="text-link" onClick={async()=>{try{const r=await api('/api/auth/verify',{method:'PUT'});toast.success(r.sent?t('We sent you a confirmation link.'):t('Email is not connected yet.'));}catch(e){toast.error(t((e as Error).message));}}}>{t('Send again')}</button></div>}
-        <div className="workspace-heading"><div><span className="eyebrow">{t(ws.workspace)}</span><h1>{t(title)}</h1><p>{t(sub)}</p></div><button className="icon-button" onClick={()=>void load()} aria-label={t('Refresh')}><RefreshCw size={18}/></button></div>
-        {view==='overview'&&<Overview orders={orders} shipments={shipments} unread={unread} ws={ws} go={go} open={open}/>}
+        <div className={'workspace-heading'+(view==='support'||view==='inbox'?' compact':'')}><div><span className="eyebrow">{t(ws.workspace)}</span><h1>{t(title)}</h1><p>{t(sub)}</p></div><button className="icon-button" onClick={()=>void load()} aria-label={t('Refresh')}><RefreshCw size={18}/></button></div>
+        {view==='overview'&&<Overview orders={orders} shipments={shipments} unread={unread} ws={ws} go={go} open={open} conversations={conversations}/>}
         {view==='orders'&&<OrdersView orders={orders} ws={ws} open={open} customer={ws.role==='customer'}/>}
         {view==='new'&&<OrderForm embedded/>}
         {view==='deliveries'&&<DeliveriesView ws={ws} shipments={shipments} reload={()=>void load()}/>}
@@ -69,8 +70,9 @@ export default function Studio(){
         {view==='customers'&&<CustomersView ws={ws} shipments={shipments} reload={()=>void load()} orders={orders} open={open}/>}
         {view==='notary'&&<NotaryView orders={orders} ws={ws} open={open}/>}
         {view==='notary-reports'&&<NotaryView orders={orders} ws={ws} open={open} reports/>}
+        {view==='memory'&&<MemoryView ws={ws}/>}
         {view==='inbox'&&<InboxView ws={ws} conversations={conversations} reload={()=>void load()} initial={conversation} open={open}/>}
-        {view==='support'&&<SupportView conversations={conversations} reload={()=>void load()}/>}
+        {view==='support'&&<SupportView ws={ws} conversations={conversations} orders={orders} reload={()=>void load()} open={open}/>}
         {view==='reports'&&<Tabs defaultValue="deliveries"><TabsList className="settings-tabs"><TabsTrigger value="deliveries">{t('Deliveries report')}</TabsTrigger><TabsTrigger value="projects">{t('Projects report')}</TabsTrigger><TabsTrigger value="notary">{t('Notary report')}</TabsTrigger></TabsList><TabsContent value="deliveries"><DeliveryReport ws={ws} shipments={shipments}/></TabsContent><TabsContent value="projects"><ProjectsReport orders={orders} ws={ws} open={open}/></TabsContent><TabsContent value="notary"><NotaryView orders={orders} ws={ws} open={open} reports/></TabsContent></Tabs>}
         {view==='team'&&<TeamView ws={ws} reload={()=>void load()}/>}
         {view==='settings'&&<SettingsView ws={ws} reload={()=>void load()}/>}

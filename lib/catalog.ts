@@ -67,6 +67,14 @@ export function normalizeAddress(a: unknown): Address {
 }
 export const addressLine = (a: Address) => [a.street && [a.street, a.number].filter(Boolean).join(' '), a.floor && `floor ${a.floor}`, a.apartment && `apt ${a.apartment}`, a.city, a.postcode].filter(Boolean).join(', ');
 
+// Translation memory match bands: repetitions inside the text, 100%, 95–99%, 85–94%, 75–84% and no match.
+export const memoryBands = ['repeat', 'exact', 'high', 'mid', 'low', 'new'] as const;
+export type MemoryBand = typeof memoryBands[number];
+export const memoryBandLabels: Record<MemoryBand, string> = { repeat: 'Repetitions', exact: '100% match', high: '95–99% match', mid: '85–94% match', low: '75–84% match', new: 'No match' };
+export const memoryAnalysisSchema = z.object({ words: z.number().int().min(0).max(10000000), bands: z.record(z.string().max(10), z.number().int().min(0).max(10000000)) });
+export type MemoryAnalysis = z.infer<typeof memoryAnalysisSchema>;
+export const memoryPriced = (service: string) => translates(service) && !isCertificate(service) && service !== 'Translation validation';
+
 export const documentSchema = z.object({
   name: z.string().min(1).max(160),
   type: z.string().max(100),
@@ -121,6 +129,8 @@ const orderFields = z.object({
   currency: z.enum(currencies).default('EUR'),
   // Kept for orders created before collection and return were separate choices.
   delivery: z.boolean().default(false),
+  // Translation-memory analysis of the uploaded files per target language (recalculated by the server).
+  memory: z.record(z.string().max(60), memoryAnalysisSchema).nullable().default(null),
 });
 export const MAX_FREE_TEXT_WORDS = 500;
 export const wordCount = (s: string) => (s.match(/[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*/gu) || []).length;
@@ -209,6 +219,8 @@ export const defaultFactors = {
   notaryCountries: {} as Record<string, Record<string, number>>,
   capacity: { Professional: 2000, Student: 1500, 'Machine draft': 20000 } as Record<string, number>,
   rates: { USD: 1.10, ILS: 4.00, GBP: 0.85, CHF: 0.94, CAD: 1.50, AUD: 1.65, JPY: 160, CNY: 7.8, PLN: 4.3, SEK: 11.4, BGN: 1.9558 } as Record<string, number>,
+  // Percentage of the word price charged for each translation-memory band.
+  memory: { repeat: 25, exact: 30, high: 60, mid: 80, low: 90, new: 100 } as Record<string, number>,
 };
 export type Factors = typeof defaultFactors;
 export type Pricing = FlatPricing & { factors: Factors; officeCountry: string; internationalCarrier: string; localCarrier: string };
@@ -217,7 +229,7 @@ export const pricingSchema = z.object({
   ...Object.fromEntries(Object.keys(defaultPricing).map(k => [k, z.number().min(0).max(10000)])) as Record<keyof FlatPricing, z.ZodNumber>,
   factors: z.object({
     sectors: numberMap, languages: numberMap, formats: numberMap, documentTypes: numberMap, customerTypes: numberMap, countries: numberMap,
-    notaryTypes: numberMap, notaryPer100: numberMap, notaryCountries: z.record(z.string().max(2), numberMap), capacity: numberMap, rates: numberMap,
+    notaryTypes: numberMap, notaryPer100: numberMap, notaryCountries: z.record(z.string().max(2), numberMap), capacity: numberMap, rates: numberMap, memory: numberMap.optional(),
   }),
   officeCountry: z.string().length(2),
   internationalCarrier: z.string().max(40),
@@ -240,7 +252,7 @@ export type QuoteLine = { key: string; label: string; amount: number };
 export type LevelPrice = { level: Level; translation: number; validation: number; total: number; days: number };
 export type Quote = {
   words: number; pages: number; lines: QuoteLine[]; total: number; days: number; levels: LevelPrice[];
-  base: number; review: number; rush: number; notary: number; delivery: number; dtp: number; adjustment: number;
+  base: number; review: number; rush: number; notary: number; delivery: number; dtp: number; adjustment: number; memory: number;
   manual: boolean; international: boolean; carrier: string; trips: number;
 };
 const pct = (p: FlatPricing, u: string) => u === 'Priority' ? p.priority : u === 'Express' ? p.express : 0;
@@ -257,7 +269,17 @@ function translationCost(o: Order, p: Pricing, level: Level) {
   }
   const rate = o.service === 'Translation validation' ? p.validation : level === 'Professional' ? p.professional : level === 'Student' ? p.student : p.machine;
   const weighted = o.documents.reduce((n, d) => n + (d.words || d.pages * 250) * d.quantity * (f.formats[d.format] ?? 1) * (f.documentTypes[d.type] ?? 1), 0);
-  return Math.max(p.minimum, weighted * rate * sector * langSum);
+  return Math.max(p.minimum, (weighted * langSum - memorySavedWords(o, p)) * rate * sector);
+}
+// Words (weighted by language factor) that translation-memory matches take off the price.
+export function memorySavedWords(o: Order, p: Pricing) {
+  if (!o.memory || !memoryPriced(o.service)) return 0;
+  const f = p.factors; const w = { ...defaultFactors.memory, ...(f.memory || {}) };
+  return o.targets.reduce((n, t) => {
+    const a = o.memory?.[t]; if (!a) return n;
+    const effective = memoryBands.reduce((m, b) => m + (a.bands[b] || 0) * Math.min(100, w[b] ?? 100) / 100, 0);
+    return n + Math.max(0, a.words - effective) * (f.languages[t] ?? 1);
+  }, 0);
 }
 function deliveryDays(o: Order, p: Pricing, level: Level, words: number) {
   const capacity = p.factors.capacity[level] || 2000;
@@ -289,7 +311,10 @@ export function quote(input: Order | OrderInput, pricing: Pricing | FlatPricing 
   }) : [];
   const level: Level = service === 'Translation validation' ? 'Professional' : o.level;
   const rawBase = tr ? translationCost(o, p, level) : 0;
-  const base = add('translation', service === 'Translation validation' ? 'Validation' : 'Translation', rawBase);
+  const grossBase = tr && o.memory ? translationCost({ ...o, memory: null }, p, level) : rawBase;
+  add('translation', service === 'Translation validation' ? 'Validation' : 'Translation', grossBase);
+  const memory = Math.max(0, -add('memory', 'Translation memory discount', rawBase - grossBase));
+  const base = rawBase;
   const review = add('validation', 'Language review', tr && o.validation && service !== 'Translation validation' ? words * p.validation * langSum : 0);
   const dtp = add('dtp', 'Layout and formatting (DTP)', tr && o.dtp ? pages * p.dtpPage * Math.max(1, o.targets.length) : 0);
   const rush = add('rush', 'Urgency supplement', (base + review + dtp) * pct(p, o.urgency));
@@ -321,7 +346,7 @@ export function quote(input: Order | OrderInput, pricing: Pricing | FlatPricing 
   const days = (tr ? deliveryDays(o, p, level, words) : 0) + notaryDays + (hasCourier(o) && !tr && !notaryDays ? (o.timing === 'Same day' ? 0 : 1) : 0);
   return {
     words, pages, lines, total, days: Math.max(service === 'Courier only' && o.timing === 'Same day' ? 0 : 1, days), levels: levelPrices,
-    base, review, rush, notary, delivery, dtp, adjustment,
+    base, review, rush, notary, delivery, dtp, adjustment, memory,
     manual: service === 'Additional services' || notary > 0 || delivery > 0,
     international, carrier: international ? p.internationalCarrier : p.localCarrier, trips,
   };

@@ -16,7 +16,7 @@ export function clientAddress(r:Request){const h=r.headers;return h.get('x-nf-cl
 export const roles=['admin','staff','customer','vendor','reviewer','notary','courier'] as const;
 export type Role=typeof roles[number];
 export type Member={id:string;workspace:string;email:string;role:Role;name:string;area:string;phone:string;address:string;business_number:string;active:number};
-export type WorkspaceConfig={notifyEmail?:string;officeAddress?:Record<string,string>;bannerTitle?:string;bannerText?:string;liveRates?:boolean};
+export type WorkspaceConfig={notifyEmail?:string;officeAddress?:Record<string,string>;bannerTitle?:string;bannerText?:string;liveRates?:boolean;assistant?:boolean;assistantNotes?:string};
 export type Workspace={id:string;owner:string;name:string;pricing:string;config:string;created:string};
 export type Ctx={u:AppUser;member:Member;workspace:Workspace;pricing:Pricing;config:WorkspaceConfig;admin:boolean;staff:boolean;role:Role};
 
