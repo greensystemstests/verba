@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {newOrder,orderSchema,quote,defaultPricing} from '../lib/catalog.ts';
-const draft={...newOrder(),title:'Synthetic medical translation',name:'Test Customer',email:'owner@example.test',phone:'+972500000000',agreed:true};
+const draft={...newOrder(),targets:['Hebrew'],title:'Synthetic medical translation',name:'Test Customer',email:'owner@example.test',phone:'+972500000000',agreed:true};
 assert.equal(quote(draft).total,5980);
 assert.equal(quote({...draft,urgency:'Express'}).total,8970);
 assert.equal(quote({...draft,targets:['Hebrew','French']}).total,11180);

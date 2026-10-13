@@ -193,7 +193,7 @@ export function newDocument(n: number, certificate = false): DocumentInput {
   return { name: certificate ? `Certificate ${n}` : `Document ${n}`, type: certificate ? 'Birth certificate' : 'Document', pages: 1, words: 250, format: 'PDF', fileIds: [], quantity: 1, counted: false };
 }
 export function newOrder(service: Service = 'Document translation'): Order {
-  return { ...orderFields.parse({ service, sector: 'Medical', targets: ['Hebrew'], documents: [newDocument(1, isCertificate(service))], validation: true }), name: '', delivery: false, title: '' };
+  return { ...orderFields.parse({ service, sector: 'Medical', targets: ['German'], documents: [newDocument(1, isCertificate(service))], validation: true }), name: '', delivery: false, title: '' };
 }
 
 // ---------- Pricing ----------

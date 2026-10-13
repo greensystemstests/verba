@@ -38,7 +38,7 @@ export function MemoryView({ws}:{ws:WorkspaceInfo}){
 }
 
 function MatchCheck({ws}:{ws:WorkspaceInfo}){
-  const {t}=useT();const [source,setSource]=useState('English');const [target,setTarget]=useState('Hebrew');const [text,setText]=useState('');const [busy,setBusy]=useState(false);const [result,setResult]=useState<{units:Unit[];summary:MemoryAnalysis&{effective:number}}|null>(null);
+  const {t}=useT();const [source,setSource]=useState('English');const [target,setTarget]=useState('German');const [text,setText]=useState('');const [busy,setBusy]=useState(false);const [result,setResult]=useState<{units:Unit[];summary:MemoryAnalysis&{effective:number}}|null>(null);
   const weights={...defaultFactors.memory,...(ws.pricing.factors.memory||{})};
   async function run(){setBusy(true);try{setResult(await api('/api/memory/match',json({text,source,target})) as never);}catch(e){toast.error(t((e as Error).message));}finally{setBusy(false);}}
   return <section className="panel match-check"><div className="panel-heading"><div><h2><ScanSearch size={18}/>{t('Check a text')}</h2><p className="muted">{t('See how much of a new text is already in your memory, sentence by sentence.')}</p></div></div>
@@ -51,7 +51,7 @@ function MatchCheck({ws}:{ws:WorkspaceInfo}){
 }
 
 function ImportCard({onDone}:{onDone:()=>void}){
-  const {t}=useT();const [source,setSource]=useState('English');const [target,setTarget]=useState('Hebrew');const [sector,setSector]=useState('General');const [file,setFile]=useState<File|null>(null);const [busy,setBusy]=useState(false);
+  const {t}=useT();const [source,setSource]=useState('English');const [target,setTarget]=useState('German');const [sector,setSector]=useState('General');const [file,setFile]=useState<File|null>(null);const [busy,setBusy]=useState(false);
   async function run(){if(!file)return;setBusy(true);try{const f=new FormData();f.append('file',file);f.append('source',source);f.append('target',target);f.append('sector',sector);const r=await api('/api/memory',{method:'POST',body:f});toast.success(t('{n} entries imported',{n:Number(r.imported).toLocaleString()}));setFile(null);onDone();}catch(e){toast.error(t((e as Error).message));}finally{setBusy(false);}}
   return <section className="panel import-card"><div className="panel-heading"><div><h2><Upload size={18}/>{t('Import')}</h2><p className="muted">{t('TMX from any translation tool, or a CSV/TSV file with two columns: source and translation.')}</p></div></div>
     <div className="two-col"><Pick label={t('From')} value={source} onChange={setSource} options={languages.map(l=>({value:l,label:t(l)}))}/><Pick label={t('To')} value={target} onChange={setTarget} options={languages.map(l=>({value:l,label:t(l)}))}/></div>
