@@ -4,7 +4,7 @@ import {deeplLanguage,isBetaLanguage} from './deepl-languages';
 // Free plan and use the api-free host. The API key never leaves the server.
 // Note: DeepL's Free plan may use submitted text to improve its service; only the Pro plan
 // deletes texts after translation. Use a Pro key for confidential documents.
-export const providerName='DeepL';
+export const providerName='Translation engine';
 export const deeplReady=()=>!!runtime().DEEPL_API_KEY;
 const host=(key:string)=>key.endsWith(':fx')?'https://api-free.deepl.com':'https://api.deepl.com';
 
@@ -22,11 +22,11 @@ async function call<T>(path:string,{method='GET',body,timeout=25000}:{method?:st
   catch{throw new HttpError(504,'The translation service did not respond in time. Your source is saved. Retry the current step.');}
   if(!response.ok){
     let detail='';try{detail=String((await response.json() as {message?:string}).message||'');}catch{}
-    if(response.status===401||response.status===403)throw new Refused(503,'The translation connection needs attention. Ask the owner to check the DeepL API key.');
-    if(response.status===456)throw new HttpError(429,'The DeepL character quota for this key has been used. Add credit or wait for the monthly reset.');
-    if(response.status===429)throw new HttpError(429,'DeepL is receiving too many requests. Wait a moment and retry the step.');
+    if(response.status===401||response.status===403)throw new Refused(503,'The translation connection needs attention. Ask the owner to check the translation key.');
+    if(response.status===456)throw new HttpError(429,'The translation quota for this key has been used. Add credit or wait for the monthly reset.');
+    if(response.status===429)throw new HttpError(429,'The translation service is receiving too many requests. Wait a moment and retry the step.');
     if(response.status===413)throw new HttpError(413,'This section is too large for the translation provider. Split the document into smaller parts.');
-    if(response.status===400&&/lang/i.test(detail))throw new HttpError(422,'DeepL does not translate this language pair yet. Choose different languages.');
+    if(response.status===400&&/lang/i.test(detail))throw new HttpError(422,'This language pair cannot be translated yet. Choose different languages.');
     if(response.status===400)throw new Refused(422,'The translation provider rejected this text. Check the source and retry.');
     throw new HttpError(502,'The translation provider could not complete this step. No result has been marked complete.');
   }
