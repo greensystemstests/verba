@@ -1462,4 +1462,6 @@ export const he:Record<string,string>={
   "Valid until (last day)":"תקף עד (היום האחרון)",
   "Words per translation":"מילים לתרגום",
   "Words used":"מילים ששימשו",
+  "This file has {words} words, but your access code allows {max}. Remove pages or choose a shorter file.":"בקובץ הזה {words} מילים, אבל קוד הגישה שלכם מאפשר {max}. הסירו עמודים או בחרו קובץ קצר יותר.",
+  "We counted {words} words on {pages} pages.":"ספרנו {words} מילים ב־{pages} עמודים.",
 };

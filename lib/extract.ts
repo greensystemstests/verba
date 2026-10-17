@@ -1,6 +1,7 @@
 import {unzipSync,strFromU8} from 'fflate';
 import {HttpError} from './server';
 import {MAX_SOURCE} from './translation';
+import {collapseSpacedLetters} from './words';
 // Reads the text of an uploaded source document on the server. TXT, DOCX and text-based PDF
 // are read directly; images and scanned PDFs have no text layer and need pasting or retyping.
 const unescapeXml=(s:string)=>s.replace(/&(#x?[0-9a-f]+|amp|lt|gt|quot|apos);/gi,(_,e:string)=>{const m=e.toLowerCase();if(m==='amp')return '&';if(m==='lt')return '<';if(m==='gt')return '>';if(m==='quot')return '"';if(m==='apos')return "'";const code=m.startsWith('#x')?parseInt(m.slice(2),16):parseInt(m.slice(1),10);return Number.isFinite(code)&&code>0&&code<0x110000?String.fromCodePoint(code):'';});
@@ -20,7 +21,7 @@ export async function extractSourceText(bytes:Uint8Array,type:string,limit=MAX_S
     }catch{throw new HttpError(422,'This Word file could not be read. Save it again as .docx and upload it.');}
   }
   else if(type==='application/pdf'){
-    try{const {getDocumentProxy,extractText}=await import('unpdf');const pdf=await getDocumentProxy(bytes.slice());text=(await extractText(pdf,{mergePages:true})).text.replace(/\n{3,}/g,'\n\n').trim();}
+    try{const {getDocumentProxy,extractText}=await import('unpdf');const pdf=await getDocumentProxy(bytes.slice());text=collapseSpacedLetters((await extractText(pdf,{mergePages:true})).text).replace(/\n{3,}/g,'\n\n').trim();}
     catch{throw new HttpError(422,'This PDF could not be read. Paste the text instead or upload a different file.');}
   }
   else throw new HttpError(422,NO_TEXT);

@@ -4,7 +4,7 @@
 // An external antivirus API (Cloudmersive) is added when CLOUDMERSIVE_API_KEY is set.
 import {PDFDocument,PDFDict,PDFName,PDFStream,PDFRawStream} from 'pdf-lib';
 import {unzipSync,strFromU8} from 'fflate';
-import {sourceWordCount} from './words.ts';
+import {sourceWordCount,collapseSpacedLetters} from './words.ts';
 
 export type ScanResult={ok:true}|{ok:false;reason:string};
 const risky=['JavaScript','JS','Launch','EmbeddedFile','EmbeddedFiles','RichMedia','XFA','ImportData'];
@@ -71,7 +71,7 @@ export async function documentStats(bytes:Uint8Array,ext:string):Promise<DocStat
       const {getDocumentProxy,extractText}=await import('unpdf');
       const pdf=await getDocumentProxy(bytes.slice());
       const {totalPages,text}=await extractText(pdf,{mergePages:true});
-      const words=sourceWordCount(text);
+      const words=sourceWordCount(collapseSpacedLetters(text));
       return words?{words,pages:totalPages}:{words:0,pages:totalPages};
     }
   }catch{return null;}
