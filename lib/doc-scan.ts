@@ -8,17 +8,29 @@ import {sourceWordCount,collapseSpacedLetters} from './words.ts';
 
 export type ScanResult={ok:true}|{ok:false;reason:string};
 const risky=['JavaScript','JS','Launch','EmbeddedFile','EmbeddedFiles','RichMedia','XFA','ImportData'];
+const ACTIVE_PDF='The PDF contains scripts, embedded files or other active content and was rejected for safety.';
+// Opens the PDF the way a reader does (no password) and looks for active content in the decrypted file.
+async function scanOpenedPdf(bytes:Uint8Array):Promise<ScanResult>{
+  try{
+    const {getDocumentProxy}=await import('unpdf');const pdf=await getDocumentProxy(bytes.slice());
+    const attachments=await pdf.getAttachments();
+    if(pdf.isPureXfa||await pdf.hasJSActions()||(attachments&&Object.keys(attachments).length))return {ok:false,reason:ACTIVE_PDF};
+    return {ok:true};
+  }catch(e){return {ok:false,reason:(e as {name?:string}).name==='PasswordException'?'Password-protected PDFs cannot be processed. Remove the password and upload again.':'The PDF could not be read. Save it again as a standard PDF and retry.'};}
+}
 async function scanPdf(bytes:Uint8Array):Promise<ScanResult>{
   let doc:PDFDocument;
   try{doc=await PDFDocument.load(bytes,{ignoreEncryption:true,updateMetadata:false,throwOnInvalidObject:false});}
   catch{return {ok:false,reason:'The PDF could not be read. Save it again as a standard PDF and retry.'};}
-  if(doc.isEncrypted)return {ok:false,reason:'Password-protected PDFs cannot be processed. Remove the password and upload again.'};
+  // Many PDFs are "secured" only against editing or copying and open without a password. A reader can open those, so we
+  // do too (this also decrypts them for the checks below); PDFs that need a password to open are refused.
+  if(doc.isEncrypted){const opened=await scanOpenedPdf(bytes);if(!opened.ok)return opened;}
   for(const [,obj] of doc.context.enumerateIndirectObjects()){
     const dict=obj instanceof PDFDict?obj:obj instanceof PDFStream||obj instanceof PDFRawStream?obj.dict:null;
     if(!dict)continue;
-    for(const key of dict.keys()){const name=key.decodeText();if(risky.includes(name))return {ok:false,reason:'The PDF contains scripts, embedded files or other active content and was rejected for safety.'};}
+    for(const key of dict.keys()){const name=key.decodeText();if(risky.includes(name))return {ok:false,reason:ACTIVE_PDF};}
     const type=dict.get(PDFName.of('S'))||dict.get(PDFName.of('Type'));
-    if(type instanceof PDFName&&risky.includes(type.decodeText()))return {ok:false,reason:'The PDF contains scripts, embedded files or other active content and was rejected for safety.'};
+    if(type instanceof PDFName&&risky.includes(type.decodeText()))return {ok:false,reason:ACTIVE_PDF};
   }
   return {ok:true};
 }

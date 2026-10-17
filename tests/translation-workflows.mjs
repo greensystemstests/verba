@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import {PDFDocument,StandardFonts} from 'pdf-lib';
 import {startApp,caller} from './support/harness.mjs';
 import {docx,zip} from '../lib/office-export.ts';
@@ -100,6 +101,13 @@ check((await call('/api/access-codes?id='+listed.find(x=>x.code==='owner-code').
 check((await call('/api/translations',{method:'POST',body:{...base,text:'x '.repeat(10001),requestKey:crypto.randomUUID()}})).status,400,'long text refused without a code');
 check((await call('/api/translations',{method:'POST',body:{...base,target:'Swahili',requestKey:crypto.randomUUID()}})).status,400,'extra languages need a code');
 check((await call('/api/translations',{method:'POST',body:{...base,code:'bad',requestKey:crypto.randomUUID()}})).status,400,'bad code refused on creation');
+// Secured PDFs: "secured" against editing but opening without a password is fine; a password to open, or a script, is refused.
+{const fixture=n=>readFileSync(new URL('./fixtures/'+n,import.meta.url));const put=async n=>{const fd=new FormData();fd.set('file',new File([fixture(n)],n,{type:'application/pdf'}));return call('/api/files',{method:'POST',body:fd});};
+ let sec=await put('open-secured.pdf');check(sec.status,201,'PDF secured against editing (AES-128) is accepted');check(sec.data.stats.words,524,'its words are counted');
+ check((await put('open-secured-256.pdf')).status,201,'AES-256 secured PDF accepted');
+ const pw=await put('needs-password.pdf');check(pw.status,400,'PDF that needs a password is refused');check(pw.data.error,'Password-protected PDFs cannot be processed. Remove the password and upload again.','password message');
+ const sc=await put('secured-with-script.pdf');check(sc.status,400,'secured PDF with a script is refused');check(sc.data.error.includes('active content'),true,'script message');
+ const sj=await call('/api/translations',{method:'POST',body:{...base,text:'',fileId:sec.data.id,requestKey:crypto.randomUUID()}});const sr=await advance(sj.data.id);check(sr.data.state,'source_review','secured PDF is read for translation');check(sr.data.source_text.length>1000,true,'its text is extracted');}
 // Files: the word count shown after upload equals the count used for the limit, and the refusal names both numbers.
 {const tall=new FormData();tall.set('file',new File([('Sentence number one has words in it. '.repeat(300))],'big.txt',{type:'text/plain'}));const up=await call('/api/files',{method:'POST',body:tall});check(up.status,201,'file uploaded');const counted=up.data.stats.words;check(counted>2000,true,'fixture is over 2,000 words');
  await call('/api/access-codes',{method:'POST',body:{code:'two-thousand',maxWords:2000,budget:null,expires:null}});
