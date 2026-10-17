@@ -76,13 +76,17 @@ Translation uses the DeepL API. Set `DEEPL_API_KEY` in the server runtime (Rende
 
 ### Access codes (free test translation)
 
-An access code makes a translation free, lifts the limit to a number of words (instead of 20,000 characters), and unlocks every language DeepL offers (about 120, instead of the 13 in orders). People type it in the translator under "Have an access code?". Codes are set on the server in `ACCESS_CODES`, never in the code or the browser:
+An access code makes a translation free, lifts the limit to a number of words (instead of 20,000 characters), and unlocks every language the translation service offers (about 120, instead of the 13 in orders). People type it in the translator under "Have an access code?".
+
+The owner manages codes in **Studio → Settings → Access codes**: the code, words per translation, an optional total word budget and the **last valid day**. A code with no date stays valid until it is removed; "+20 days" extends it. Codes are stored in the database, so every host (Render, Netlify) sees the same codes and nothing needs a redeploy. Codes are never in the source code or the browser, and typing is not case sensitive.
+
+Codes can also be set on the server in `ACCESS_CODES` (read-only in Settings; a code in Settings replaces one with the same text):
 
 ```
-ACCESS_CODES=my-code:2000,other-code:2000:50000
+ACCESS_CODES=my-code:2000,other-code:2000:50000,dated-code:2000::2026-12-31
 ```
 
-Each entry is `code:wordsPerTranslation` with an optional third number, a total word budget for that code (counted when a quote is accepted). The code is not case sensitive. Remove it from `ACCESS_CODES` to switch it off; a free quote that was not yet accepted then stops being free. DeepL characters are billed to your DeepL account, so share codes with care: the Free DeepL plan allows 500,000 characters a month, roughly 35 translations of 2,000 words.
+Each entry is `code:wordsPerTranslation[:totalWordBudget[:lastDay]]`. Translation usage is billed to your translation account, so share codes with care: the free plan allows 500,000 characters a month, roughly 35 translations of 2,000 words.
 
 ### Customer-service assistant (OpenAI)
 

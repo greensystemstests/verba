@@ -82,6 +82,21 @@ j=await create({target:'Hebrew',tone:'Natural',sector:'Technology'});await advan
 await app.db.query('UPDATE translations SET created=$1',['2000-01-01T00:00:00.000Z']);
 check((await call('/api/translations/code',{method:'POST',body:{code:'wrong'}})).status,400,'wrong code refused');check((await call('/api/translations/code',{method:'POST',actor:null,body:{code:'unit-code'}})).status,401,'code check needs sign-in');
 const codeCheck=await call('/api/translations/code',{method:'POST',body:{code:' Unit-Code '}});check(codeCheck.status,200,'code accepted, case and spaces ignored');check(codeCheck.data.maxWords,5000,'word limit reported');check(codeCheck.data.remaining,6000,'budget reported');
+// Codes managed by the owner in Settings: stored in the database, with an expiry date the owner chooses.
+check((await call('/api/access-codes',{actor:'customer'})).status,403,'access codes are admin only');
+const tomorrow=new Date(Date.now()+86400000).toISOString().slice(0,10),yesterday=new Date(Date.now()-86400000).toISOString().slice(0,10);
+check((await call('/api/access-codes',{method:'POST',body:{code:'owner-code',maxWords:2000,budget:null,expires:tomorrow}})).status,201,'owner adds a code with an expiry date');
+check((await call('/api/access-codes',{method:'POST',actor:'customer',body:{code:'sneaky',maxWords:5,budget:null,expires:null}})).status,403,'customers cannot add codes');
+check((await call('/api/access-codes',{method:'POST',body:{code:'bad code',maxWords:5,budget:null,expires:null}})).status,400,'code without spaces');
+let owned=await call('/api/translations/code',{method:'POST',body:{code:'OWNER-CODE'}});check(owned.status,200,'database code accepted');check(owned.data.maxWords,2000,'word limit of the database code');check(owned.data.expires,tomorrow,'expiry reported');
+const ownedJob=await create({code:'owner-code',text:'Take 5 mg daily.'});check(ownedJob.quote.free,true,'free quote with a database code');
+check((await call('/api/access-codes',{method:'POST',body:{code:'owner-code',maxWords:2000,budget:null,expires:yesterday}})).status,200,'owner sets the expiry in the past');
+owned=await call('/api/translations/code',{method:'POST',body:{code:'owner-code'}});check(owned.status,400,'expired code refused');check(owned.data.error,'This access code has expired.','expired message');
+check((await call('/api/translations',{method:'POST',body:{...base,code:'owner-code',requestKey:crypto.randomUUID()}})).status,400,'expired code cannot start a job');
+check((await call('/api/access-codes',{method:'POST',body:{code:'owner-code',maxWords:2000,budget:null,expires:null}})).status,200,'owner removes the expiry');
+check((await call('/api/translations/code',{method:'POST',body:{code:'owner-code'}})).status,200,'code works again without expiry');
+const listed=(await call('/api/access-codes')).data.items;check(listed.some(x=>x.code==='owner-code'&&!x.expired&&x.source==='database'),true,'listed as active');check(listed.some(x=>x.code==='unit-code'&&x.source==='server'),true,'server code listed too');
+check((await call('/api/access-codes?id='+listed.find(x=>x.code==='owner-code').id,{method:'DELETE'})).status,200,'owner removes a code');check((await call('/api/translations/code',{method:'POST',body:{code:'owner-code'}})).status,400,'removed code refused');
 check((await call('/api/translations',{method:'POST',body:{...base,text:'x '.repeat(10001),requestKey:crypto.randomUUID()}})).status,400,'long text refused without a code');
 check((await call('/api/translations',{method:'POST',body:{...base,target:'Swahili',requestKey:crypto.randomUUID()}})).status,400,'extra languages need a code');
 check((await call('/api/translations',{method:'POST',body:{...base,code:'bad',requestKey:crypto.randomUUID()}})).status,400,'bad code refused on creation');
